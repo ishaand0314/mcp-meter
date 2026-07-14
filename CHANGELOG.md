@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-- Auto-discovery of MCP server configs for Claude Desktop, Claude Code, Cursor, and Windsurf, plus explicit config selection via `--config`.
+- Auto-discovery of MCP server configs for Claude Desktop, Claude Code, Cursor, Windsurf, and Codex CLI, plus explicit config selection via `--config`.
 - Real MCP `initialize` → `tools/list` handshake over stdio for each configured server, with a 10-second per-server timeout and graceful skipping of servers that fail to spawn, error, or hang.
 - Token counting of each tool's exact context payload (name, description, input schema) via `gpt-tokenizer`.
 - Monthly dollar cost projection across a set of representative models (GPT-4o, Claude Sonnet, Gemini Flash, and others), driven by an assumed daily turn volume (`--turns-per-day`, default 50).
