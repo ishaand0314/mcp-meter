@@ -1,6 +1,6 @@
 {
   "name": "mcp-meter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Measures the token and dollar cost that your installed MCP servers' tool schemas add to every single agent turn.",
   "bin": {
     "mcp-meter": "bin/mcp-meter.js"
@@ -38,7 +38,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "author": "ishaand0314",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "commander": "^15.0.0",
