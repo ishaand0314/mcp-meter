@@ -1,0 +1,52 @@
+{
+  "name": "mcp-meter",
+  "version": "0.1.0",
+  "description": "Measures the token and dollar cost that your installed MCP servers' tool schemas add to every single agent turn.",
+  "bin": {
+    "mcp-meter": "bin/mcp-meter.js"
+  },
+  "main": "dist/cli.js",
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "cli",
+    "token-counter",
+    "llm",
+    "claude",
+    "cursor",
+    "cost"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ishaand0314/mcp-meter.git"
+  },
+  "homepage": "https://github.com/ishaand0314/mcp-meter#readme",
+  "bugs": {
+    "url": "https://github.com/ishaand0314/mcp-meter/issues"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "ishaand0314",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "gpt-tokenizer": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
