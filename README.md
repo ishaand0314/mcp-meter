@@ -187,6 +187,10 @@ Codex CLI is the one exception to the JSON-shaped rule above: it stores its conf
 
 MCP Meter spawns the actual command configured for each MCP server in order to talk to it. Only run it against servers you already trust and would be comfortable running yourself — it does not sandbox, review, or vet server code in any way.
 
+## For MCP server developers
+
+If you maintain an MCP server, see [BEST_PRACTICES.md](BEST_PRACTICES.md) — a short guide to writing lean tool descriptions and schemas, built directly from the same heuristics MCP Meter checks for. Running `mcp-meter --server <yours>` against your own server before publishing is the fastest way to catch bloat before your users pay for it.
+
 ## Contributing
 
 Bug reports, feature requests, and discussion are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started, including the ground rules around pull requests given this project's license.
