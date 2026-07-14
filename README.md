@@ -8,7 +8,7 @@ Find out how many tokens your MCP servers are quietly adding to every single age
 
 ## Why this exists
 
-Every MCP server you connect to an agent registers a set of tools, and every one of those tool definitions — name, description, and JSON input schema — gets injected into the model's context on **every single turn**, before you've typed a word. Add a few servers and that overhead adds up fast, silently, on every request you send. Running MCP Meter against its own bundled demo dataset (`npx mcp-meter --demo`), six typical MCP servers (filesystem, GitHub, Postgres, Slack, a browser, and a memory graph) come out to **3,309 tokens injected per turn** — roughly **$12–15/month** in pure standing overhead at a modest 50 turns/day, before the model has done any actual work. MCP Meter measures your real, configured servers the same way, in seconds, without you writing a single prompt.
+Every MCP server you connect to an agent registers a set of tools, and every one of those tool definitions (name, description, and JSON input schema) gets injected into the model's context on **every single turn**, before you've typed a word. Add a few servers and that overhead adds up fast, silently, on every request you send. Running MCP Meter against its own bundled demo dataset (`npx mcp-meter --demo`), six typical MCP servers (filesystem, GitHub, Postgres, Slack, a browser, and a memory graph) come out to **3,309 tokens injected per turn**, roughly **$12–15/month** in pure standing overhead at a modest 50 turns/day, before the model has done any actual work. MCP Meter measures your real, configured servers the same way, in seconds, without you writing a single prompt.
 
 ## Quick Start
 
@@ -116,8 +116,8 @@ mcp-meter --config ~/.cursor/mcp.json --watch
 ## Example Output
 
 ```
-MCP Meter — tool schema token overhead report
-(analyzing bundled --demo dataset — see provenance note at the bottom)
+MCP Meter: tool schema token overhead report
+(analyzing bundled --demo dataset: see provenance note at the bottom)
 
 SERVER                  TOOLS  TOKENS/TURN
 ----------------------  -----  -----------
@@ -164,36 +164,36 @@ MCP Meter auto-discovers server configs from these clients' well-known config fi
 
 Any config file whose top-level shape uses an `mcpServers`, `servers`, or `mcp` map of server entries is understood, so `--config` also works against ad-hoc or hand-written config files in the same shape. Only `stdio`-based servers (defined by a `command` to run) are analyzed; URL/SSE-based server entries are currently skipped, and entries explicitly marked `"disabled": true` are skipped too.
 
-Codex CLI is the one exception to the JSON-shaped rule above: it stores its config as TOML rather than JSON, declaring each server as an `[mcp_servers.<name>]` table with `command`, optional `args`/`env`, and an optional `enabled` flag (servers with `enabled = false` are skipped, mirroring `"disabled": true` for the other clients). Any file with a `.toml` extension — whether auto-discovered or passed via `--config` — is parsed as a Codex-style config.
+Codex CLI is the one exception to the JSON-shaped rule above: it stores its config as TOML rather than JSON, declaring each server as an `[mcp_servers.<name>]` table with `command`, optional `args`/`env`, and an optional `enabled` flag (servers with `enabled = false` are skipped, mirroring `"disabled": true` for the other clients). Any file with a `.toml` extension, whether auto-discovered or passed via `--config`, is parsed as a Codex-style config.
 
 ## How it works
 
-1. **Config discovery** — either reads the file passed via `--config`, or probes the known config locations above and parses each one's server map.
-2. **MCP handshake** — for each configured server, spawns its command over stdio and performs the real MCP `initialize` → `tools/list` handshake to fetch its actual tool manifests (name, description, input schema). Any server that fails to spawn, errors, or hangs is skipped gracefully after a 10-second timeout — one bad server never blocks the rest of the report.
-3. **Tokenization** — for each tool, the exact JSON payload that gets injected into the model's context (`name` + `description` + `inputSchema`) is tokenized with [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), an OpenAI-compatible BPE tokenizer.
-4. **Cost model** — total tokens per turn are projected into a monthly dollar figure across a handful of representative models, at an assumed daily request volume (default 50 turns/day, override with `--turns-per-day`).
-5. **Report** — rendered as a terminal table by default, or as JSON, GitHub-flavored markdown, a self-contained static HTML page, or a standalone SVG badge. Every report also surfaces two offender checks: tools whose description is a disproportionate token hog, and pairs of tools that look like near-duplicates of each other.
-6. **Real usage overlay (optional)** — pass `--usage-log <path>` to see which of those configured tools were actually called during a real session, versus which are pure standing overhead that never gets used. MCP Meter reads Claude Code's local session transcripts (`~/.claude/projects/**/*.jsonl`) natively, or a generic JSON array of `{"tool": "name"}` records for any other client. Every report format gains a `used` count per tool plus a one-line summary of how many tools — and how many tokens — were never touched.
-7. **Live mode (optional)** — pass `--watch` to keep MCP Meter running after the first report: it watches the config file(s) it just analyzed and automatically re-runs the whole analysis and reprints the report the moment they change, so you can see the token cost update live as you add or remove servers.
+1. **Config discovery**: either reads the file passed via `--config`, or probes the known config locations above and parses each one's server map.
+2. **MCP handshake**: for each configured server, spawns its command over stdio and performs the real MCP `initialize` → `tools/list` handshake to fetch its actual tool manifests (name, description, input schema). Any server that fails to spawn, errors, or hangs is skipped gracefully after a 10-second timeout, so one bad server never blocks the rest of the report.
+3. **Tokenization**: for each tool, the exact JSON payload that gets injected into the model's context (`name` + `description` + `inputSchema`) is tokenized with [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), an OpenAI-compatible BPE tokenizer.
+4. **Cost model**: total tokens per turn are projected into a monthly dollar figure across a handful of representative models, at an assumed daily request volume (default 50 turns/day, override with `--turns-per-day`).
+5. **Report**: rendered as a terminal table by default, or as JSON, GitHub-flavored markdown, a self-contained static HTML page, or a standalone SVG badge. Every report also surfaces two offender checks: tools whose description is a disproportionate token hog, and pairs of tools that look like near-duplicates of each other.
+6. **Real usage overlay (optional)**: pass `--usage-log <path>` to see which of those configured tools were actually called during a real session, versus which are pure standing overhead that never gets used. MCP Meter reads Claude Code's local session transcripts (`~/.claude/projects/**/*.jsonl`) natively, or a generic JSON array of `{"tool": "name"}` records for any other client. Every report format gains a `used` count per tool plus a one-line summary of how many tools, and how many tokens, were never touched.
+7. **Live mode (optional)**: pass `--watch` to keep MCP Meter running after the first report. It watches the config file(s) it just analyzed and automatically re-runs the whole analysis and reprints the report the moment they change, so you can see the token cost update live as you add or remove servers.
 
 ## Limitations
 
-- **Tokenizer approximation.** MCP Meter uses one consistent OpenAI-compatible tokenizer (`gpt-tokenizer`) for every model so numbers are comparable to each other. Anthropic, Google, and other providers use their own, different tokenizers — non-OpenAI token counts are a close approximation, not an exact match.
+- **Tokenizer approximation.** MCP Meter uses one consistent OpenAI-compatible tokenizer (`gpt-tokenizer`) for every model so numbers are comparable to each other. Anthropic, Google, and other providers use their own, different tokenizers, so non-OpenAI token counts are a close approximation, not an exact match.
 - **Pricing is illustrative.** The built-in per-model price table is a small, hand-entered snapshot of a few representative models. It is not exhaustive, not authoritative, and will go stale over time. Always check the provider's official pricing page before making real budgeting decisions.
 - **Only stdio servers are analyzed.** Config entries that connect over a URL/SSE transport rather than a local command are currently skipped.
 - **Running this executes local code.** To fetch a server's real tool list, MCP Meter spawns that server's command on your machine, the same way your MCP client normally would. See Safety below.
 
 ## Safety
 
-MCP Meter spawns the actual command configured for each MCP server in order to talk to it. Only run it against servers you already trust and would be comfortable running yourself — it does not sandbox, review, or vet server code in any way.
+MCP Meter spawns the actual command configured for each MCP server in order to talk to it. Only run it against servers you already trust and would be comfortable running yourself: it does not sandbox, review, or vet server code in any way.
 
 ## For MCP server developers
 
-If you maintain an MCP server, see [BEST_PRACTICES.md](BEST_PRACTICES.md) — a short guide to writing lean tool descriptions and schemas, built directly from the same heuristics MCP Meter checks for. Running `mcp-meter --server <yours>` against your own server before publishing is the fastest way to catch bloat before your users pay for it.
+If you maintain an MCP server, see [BEST_PRACTICES.md](BEST_PRACTICES.md), a short guide to writing lean tool descriptions and schemas, built directly from the same heuristics MCP Meter checks for. Running `mcp-meter --server <yours>` against your own server before publishing is the fastest way to catch bloat before your users pay for it.
 
 ## Contributing
 
-Bug reports, feature requests, and discussion are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started, including the ground rules around pull requests given this project's license.
+Bug reports, feature requests, and discussion are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started, including the ground rules around pull requests given this project's license.
 
 ## License
 

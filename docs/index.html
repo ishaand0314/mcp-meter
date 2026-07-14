@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MCP Meter — Interactive Playground</title>
-<meta name="description" content="See exactly how many tokens and dollars your MCP servers add to every agent turn — an interactive walkthrough of real mcp-meter --demo output.">
+<title>MCP Meter: Interactive Playground</title>
+<meta name="description" content="See exactly how many tokens and dollars your MCP servers add to every agent turn, in an interactive walkthrough of real mcp-meter --demo output.">
 <style>
   /* ============================================================
      Design tokens — light (default) + dark, both media-query and
@@ -36,15 +36,14 @@
     --shadow: 0 8px 28px rgba(11,11,11,0.10);
 
     /* Retrofuturism theme layer — chrome/pastel daylight variant */
-    --rf-sky-1: #ffd9ec;
-    --rf-sky-2: #cfe8ff;
+    --rf-bg: #ffffff;
+    --rf-line: rgba(20, 10, 35, 0.14);
+    --rf-line-strong: rgba(20, 10, 35, 0.6);
+    --rf-purple: #6d28d9;
+    --rf-purple-strong: #4c1d95;
     --rf-chrome-1: #ffffff;
-    --rf-chrome-2: #d9d5ec;
-    --rf-accent: #ff3d9a;
-    --rf-accent-2: #0fb4c4;
-    --rf-grid-line: rgba(90, 45, 130, 0.12);
-    --rf-grid-glow: rgba(255, 61, 154, 0.20);
-    --rf-bar-glow: rgba(11, 11, 11, 0.14);
+    --rf-chrome-2: #efeaf9;
+    --rf-bar-glow: rgba(11, 11, 11, 0.16);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -101,15 +100,14 @@
     --shadow: 0 8px 28px rgba(0,0,0,0.45);
 
     /* Retrofuturism theme layer — synthwave night variant */
-    --rf-sky-1: #1a0b2e;
-    --rf-sky-2: #05050a;
-    --rf-chrome-1: #2b2b3a;
-    --rf-chrome-2: #101018;
-    --rf-accent: #ff2fb0;
-    --rf-accent-2: #21e6ff;
-    --rf-grid-line: rgba(255, 47, 176, 0.35);
-    --rf-grid-glow: rgba(33, 230, 255, 0.28);
-    --rf-bar-glow: rgba(255, 255, 255, 0.4);
+    --rf-bg: #050506;
+    --rf-line: rgba(255, 255, 255, 0.16);
+    --rf-line-strong: rgba(255, 255, 255, 0.6);
+    --rf-purple: #a074ff;
+    --rf-purple-strong: #c2a6ff;
+    --rf-chrome-1: #19191d;
+    --rf-chrome-2: #0a0a0c;
+    --rf-bar-glow: rgba(255, 255, 255, 0.22);
   }
 
   :root[data-theme="light"] {
@@ -138,15 +136,14 @@
     --shadow: 0 8px 28px rgba(11,11,11,0.10);
 
     /* Retrofuturism theme layer — chrome/pastel daylight variant */
-    --rf-sky-1: #ffd9ec;
-    --rf-sky-2: #cfe8ff;
+    --rf-bg: #ffffff;
+    --rf-line: rgba(20, 10, 35, 0.14);
+    --rf-line-strong: rgba(20, 10, 35, 0.6);
+    --rf-purple: #6d28d9;
+    --rf-purple-strong: #4c1d95;
     --rf-chrome-1: #ffffff;
-    --rf-chrome-2: #d9d5ec;
-    --rf-accent: #ff3d9a;
-    --rf-accent-2: #0fb4c4;
-    --rf-grid-line: rgba(90, 45, 130, 0.12);
-    --rf-grid-glow: rgba(255, 61, 154, 0.20);
-    --rf-bar-glow: rgba(11, 11, 11, 0.14);
+    --rf-chrome-2: #efeaf9;
+    --rf-bar-glow: rgba(11, 11, 11, 0.16);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -467,7 +464,6 @@
     background: var(--page-plane);
   }
   .offender-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-  .offender-icon { color: var(--status-warning); font-size: .95rem; line-height: 1; }
   .offender-title { font-weight: 600; font-size: .85rem; }
   .offender-tag {
     margin-left: auto;
@@ -567,141 +563,119 @@
      Retrofuturism theme layer — additive only. Nothing above this
      point is touched: chart colors, contrast-critical text, legend,
      and table rendering keep their original validated tokens.
+     Palette is restricted to black, white, and a single purple: no
+     multi-hue gradients, no glow blobs, no decorative icon glyphs.
      ============================================================ */
 
-  .fx-grid, .fx-glow, .fx-scanlines {
+  body, input, button { font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace; }
+
+  .fx-grid, .fx-scanlines {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
   }
-  .fx-glow {
-    background:
-      radial-gradient(46% 38% at 78% 8%, var(--rf-accent-2) 0%, transparent 62%),
-      radial-gradient(60% 46% at 22% 0%, var(--rf-grid-glow), transparent 68%),
-      linear-gradient(180deg, var(--rf-sky-1) 0%, var(--page-plane) 62%);
-    opacity: .6;
-  }
   .fx-grid {
+    background-color: var(--rf-bg);
     background-image:
-      linear-gradient(var(--rf-grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--rf-grid-line) 1px, transparent 1px);
+      linear-gradient(var(--rf-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rf-line) 1px, transparent 1px);
     background-size: 44px 44px;
-    transform: perspective(340px) rotateX(58deg);
-    transform-origin: 50% 0%;
-    -webkit-mask-image: linear-gradient(180deg, transparent, black 15%, black 46%, transparent 88%);
-    mask-image: linear-gradient(180deg, transparent, black 15%, black 46%, transparent 88%);
-    opacity: .55;
+    -webkit-mask-image: linear-gradient(180deg, black, black 46%, transparent 92%);
+    mask-image: linear-gradient(180deg, black, black 46%, transparent 92%);
   }
   .fx-scanlines {
-    background-image: repeating-linear-gradient(0deg, rgba(11,11,11,.05) 0px, rgba(11,11,11,.05) 1px, transparent 1px, transparent 3px);
+    background-image: repeating-linear-gradient(0deg, rgba(128,128,128,.05) 0px, rgba(128,128,128,.05) 1px, transparent 1px, transparent 3px);
     opacity: .3;
   }
-  @media (prefers-color-scheme: dark) {
-    .fx-scanlines { background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0px, rgba(255,255,255,.045) 1px, transparent 1px, transparent 3px); opacity: .4; }
-  }
-  :root[data-theme="dark"] .fx-scanlines { background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0px, rgba(255,255,255,.045) 1px, transparent 1px, transparent 3px); opacity: .4; }
-  :root[data-theme="light"] .fx-scanlines { background-image: repeating-linear-gradient(0deg, rgba(11,11,11,.05) 0px, rgba(11,11,11,.05) 1px, transparent 1px, transparent 3px); opacity: .3; }
 
-  /* Hero becomes the "vaporwave sky" — everything else stays on solid,
-     validated-contrast surfaces so real data is never read against a gradient. */
+  /* Hero sits on the flat grid background; everything below stays on the
+     solid, validated-contrast surface so real data never sits on a texture. */
   .hero { background: transparent; border-bottom: none; position: relative; }
   .hero::after {
     content: "";
-    position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--rf-accent), var(--rf-accent-2), transparent);
+    position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--rf-line-strong) 20%, var(--rf-purple) 50%, var(--rf-line-strong) 80%, transparent);
   }
-  .eyebrow { letter-spacing: .16em; }
+  .eyebrow { letter-spacing: .18em; }
   .hero h1 {
     text-transform: uppercase;
-    font-weight: 800;
-    letter-spacing: .01em;
-    background: linear-gradient(100deg, var(--rf-accent), var(--rf-accent-2) 65%, var(--rf-accent));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    filter: drop-shadow(0 0 26px var(--rf-grid-glow));
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: var(--text-primary);
   }
-  .hero-stat { text-shadow: 0 0 46px var(--rf-grid-glow); }
+  .hero h1 .accent { color: var(--rf-purple); }
 
   footer { border-top: none; position: relative; }
   footer::before {
     content: "";
-    position: absolute; left: 0; right: 0; top: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--rf-accent-2), var(--rf-accent), transparent);
+    position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--rf-line-strong) 20%, var(--rf-purple) 50%, var(--rf-line-strong) 80%, transparent);
   }
 
-  h2 { text-transform: uppercase; letter-spacing: .04em; font-weight: 800; }
+  h2 { text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
   h2::after {
     content: "";
     display: block;
-    width: 46px; height: 3px;
+    width: 42px; height: 2px;
     margin: .65rem auto 0;
-    border-radius: 2px;
-    background: linear-gradient(90deg, var(--rf-accent), var(--rf-accent-2));
+    background: var(--rf-purple);
   }
 
   .card {
     position: relative;
     overflow: hidden;
-    border-color: var(--rf-grid-line);
-    box-shadow: var(--shadow), 0 0 36px -20px var(--rf-accent-2);
+    border-color: var(--rf-line);
   }
   .card::before {
     content: "";
-    position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, var(--rf-accent), var(--rf-accent-2), var(--rf-accent));
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--rf-purple);
   }
 
   .btn, .copy-btn, .toggle-btn, #theme-toggle {
-    background: linear-gradient(180deg, var(--rf-chrome-1), var(--rf-chrome-2));
-    border-color: var(--rf-grid-line);
+    background: var(--rf-bg);
+    border: 1px solid var(--rf-line-strong);
   }
   .btn.primary {
-    background: linear-gradient(135deg, var(--rf-accent), var(--rf-accent-2));
+    background: var(--rf-purple);
     color: #fff;
-    border-color: transparent;
-    box-shadow: 0 0 26px -6px var(--rf-accent-2);
+    border-color: var(--rf-purple);
   }
-  .btn.primary:hover { filter: brightness(1.1); }
-
-  .hbar-fill, .cost-bar-fill {
-    box-shadow: 0 0 10px 0 var(--rf-bar-glow);
-  }
+  .btn.primary:hover { background: var(--rf-purple-strong); border-color: var(--rf-purple-strong); }
 </style>
 </head>
 <body>
 
-<div class="fx-glow" aria-hidden="true"></div>
 <div class="fx-grid" aria-hidden="true"></div>
 <div class="fx-scanlines" aria-hidden="true"></div>
 
-<button id="theme-toggle" type="button" aria-label="Toggle color theme">◐ Theme</button>
+<button id="theme-toggle" type="button" aria-label="Toggle color theme">Theme</button>
 
 <header class="hero">
   <div class="container">
     <div class="eyebrow">MCP tooling costs, measured</div>
     <h1>MCP Meter</h1>
-    <p class="tagline">See exactly how many tokens — and dollars — your MCP servers add to every single agent turn, before you've typed a word.</p>
+    <p class="tagline">See exactly how many tokens and dollars your MCP servers add to every single agent turn, before you've typed a word.</p>
 
-    <div class="hero-stat" id="stat-tokens">—</div>
-    <p class="hero-stat-label">tokens injected into every turn, across <span id="stat-servers-inline">—</span> connected MCP servers</p>
+    <div class="hero-stat" id="stat-tokens">…</div>
+    <p class="hero-stat-label">tokens injected into every turn, across <span id="stat-servers-inline">…</span> connected MCP servers</p>
 
     <div class="hero-substats">
       <div class="hero-substat">
-        <div class="value" id="stat-servers">—</div>
+        <div class="value" id="stat-servers">…</div>
         <div class="label">MCP servers analyzed</div>
       </div>
       <div class="hero-substat">
-        <div class="value" id="stat-tools">—</div>
+        <div class="value" id="stat-tools">…</div>
         <div class="label">tools registered</div>
       </div>
       <div class="hero-substat">
-        <div class="value" id="stat-cost-range">—</div>
+        <div class="value" id="stat-cost-range">…</div>
         <div class="label">projected $/month</div>
       </div>
       <div class="hero-substat">
-        <div class="value" id="stat-turns">—</div>
+        <div class="value" id="stat-turns">…</div>
         <div class="label">assumed turns/day</div>
       </div>
     </div>
@@ -713,7 +687,7 @@
 
     <section class="problem tight">
       <h2>The tax nobody sees</h2>
-      <p>Every MCP server your agent connects to registers a set of tools — and each tool's name, description, and input schema gets stuffed into the model's context on <em>every single turn</em>, before you've written a word of your prompt. Connect a handful of servers and that overhead compounds into thousands of standing tokens and real monthly spend, with no visibility into which server — or which tool — is responsible. MCP Meter reads your actual configured servers and shows you the breakdown in seconds, no prompts required.</p>
+      <p>Every MCP server your agent connects to registers a set of tools, and each tool's name, description, and input schema gets stuffed into the model's context on <em>every single turn</em>, before you've written a word of your prompt. Connect a handful of servers and that overhead compounds into thousands of standing tokens and real monthly spend, with no visibility into which server or tool is responsible. MCP Meter reads your actual configured servers and shows you the breakdown in seconds, no prompts required.</p>
     </section>
 
     <section id="breakdown">
@@ -730,7 +704,7 @@
         <div id="table-view" hidden>
           <div class="table-wrap">
             <table>
-              <caption>Per-server token breakdown — identical data to the chart above.</caption>
+              <caption>Per-server token breakdown: identical data to the chart above.</caption>
               <thead>
                 <tr>
                   <th>Server</th>
@@ -774,7 +748,7 @@
 
     <section id="offenders">
       <h2>What the analyzer flagged</h2>
-      <p class="section-sub">MCP Meter doesn't just count tokens — it flags the specific tools driving the overhead.</p>
+      <p class="section-sub">MCP Meter counts tokens and flags the specific tools driving the overhead.</p>
 
       <p class="offender-callout" id="offender-callout"></p>
 
@@ -797,15 +771,15 @@
         <p class="provenance-note" id="provenance-note"></p>
         <p class="provenance-counts" id="provenance-counts"></p>
         <div class="provenance-legend">
-          <span><span class="dot dot-live"></span>Live-captured — a real MCP handshake against the actual server</span>
-          <span><span class="dot dot-illustrative"></span>Illustrative — bundled example data, for demo purposes</span>
+          <span><span class="dot dot-live"></span>Live-captured: a real MCP handshake against the actual server</span>
+          <span><span class="dot dot-illustrative"></span>Illustrative: bundled example data, for demo purposes</span>
         </div>
       </div>
     </section>
 
     <section id="try-it" class="cta">
       <h2>Try it yourself</h2>
-      <p class="section-sub">Run the exact command that produced every number on this page — entirely offline, no config required.</p>
+      <p class="section-sub">Run the exact command that produced every number on this page, entirely offline, no config required.</p>
 
       <div class="code-box">
         <code id="copy-text">npx mcp-meter --demo</code>
@@ -824,7 +798,7 @@
 </main>
 
 <footer>
-  <p>MCP Meter is source-available for transparency and security review — it is not licensed for redistribution, republishing, or derivative works. See the LICENSE file in the repository for the full terms.</p>
+  <p>MCP Meter is source-available for transparency and security review; it is not licensed for redistribution, republishing, or derivative works. See the LICENSE file in the repository for the full terms.</p>
   <p>All figures on this page are the real, unmodified output of <code>mcp-meter --demo --json</code>, embedded verbatim.</p>
 </footer>
 
@@ -1655,7 +1629,7 @@
   calloutEl.appendChild(document.createTextNode(" overly-verbose tool description" + (verbose.length === 1 ? "" : "s") + " and "));
   var b2 = document.createElement("b"); b2.textContent = String(dup.length);
   calloutEl.appendChild(b2);
-  calloutEl.appendChild(document.createTextNode(" likely-duplicate tool pair" + (dup.length === 1 ? "" : "s") + " in this run — trimming just the verbose ones would save about "));
+  calloutEl.appendChild(document.createTextNode(" likely-duplicate tool pair" + (dup.length === 1 ? "" : "s") + " in this run. Trimming just the verbose ones would save about "));
   var b3 = document.createElement("b"); b3.textContent = fmtInt(totalSavings);
   calloutEl.appendChild(b3);
   calloutEl.appendChild(document.createTextNode(" tokens on every single turn."));
@@ -1667,24 +1641,19 @@
 
     var head = document.createElement("div");
     head.className = "offender-head";
-    var icon = document.createElement("span");
-    icon.className = "offender-icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = "⚠";
     var title = document.createElement("span");
     title.className = "offender-title";
     title.textContent = o.serverName + " · " + o.toolName;
     var tag = document.createElement("span");
     tag.className = "offender-tag";
     tag.textContent = "verbose description";
-    head.appendChild(icon);
     head.appendChild(title);
     head.appendChild(tag);
     item.appendChild(head);
 
     var meta = document.createElement("div");
     meta.className = "offender-meta";
-    meta.textContent = fmtInt(o.tokens) + " tokens vs. a " + fmtInt(o.medianTokens) + "-token median this run — the suggested trim saves about " + fmtInt(o.potentialSavingsTokens) + " tokens.";
+    meta.textContent = fmtInt(o.tokens) + " tokens vs. a " + fmtInt(o.medianTokens) + "-token median this run. The suggested trim saves about " + fmtInt(o.potentialSavingsTokens) + " tokens.";
     item.appendChild(meta);
 
     verboseList.appendChild(item);
@@ -1704,17 +1673,12 @@
 
     var head = document.createElement("div");
     head.className = "offender-head";
-    var icon = document.createElement("span");
-    icon.className = "offender-icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = "⚠";
     var title = document.createElement("span");
     title.className = "offender-title";
-    title.textContent = p.a.serverName + "." + p.a.toolName + " ↔ " + p.b.serverName + "." + p.b.toolName;
+    title.textContent = p.a.serverName + "." + p.a.toolName + " / " + p.b.serverName + "." + p.b.toolName;
     var tag = document.createElement("span");
     tag.className = "offender-tag";
     tag.textContent = Math.round(p.similarity * 100) + "% similar";
-    head.appendChild(icon);
     head.appendChild(title);
     head.appendChild(tag);
     item.appendChild(head);
@@ -1745,7 +1709,7 @@
   copyBtn.addEventListener("click", function () {
     var ok = false;
     function done() {
-      copyBtn.textContent = ok ? "Copied!" : "Press ⌘/Ctrl+C";
+      copyBtn.textContent = ok ? "Copied!" : "Press Cmd/Ctrl+C";
       setTimeout(function () { copyBtn.textContent = "Copy"; }, 1800);
     }
     if (navigator.clipboard && window.isSecureContext) {
@@ -1790,7 +1754,7 @@
   }
   function updateThemeBtn() {
     var eff = currentEffective();
-    themeBtn.textContent = eff === "dark" ? "☀ Light" : "◑ Dark";
+    themeBtn.textContent = eff === "dark" ? "Light" : "Dark";
     themeBtn.setAttribute("aria-label", "Switch to " + (eff === "dark" ? "light" : "dark") + " theme");
   }
   function applyTheme(t) {

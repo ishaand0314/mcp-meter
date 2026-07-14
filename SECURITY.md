@@ -19,4 +19,4 @@ MCP Meter's core function is to spawn the MCP server processes defined in your (
 - MCP Meter does not sandbox, statically analyze, or vet the servers it spawns in any way.
 - **Only run MCP Meter against MCP servers you already trust and would be comfortable running yourself.** Do not point it at a config containing a server you haven't reviewed.
 
-MCP Meter itself does not make outbound network requests, collect telemetry, or transmit your configuration or tool data anywhere — analysis happens entirely locally, and reports are written only to the paths and streams you specify.
+MCP Meter itself does not make outbound network requests, collect telemetry, or transmit your configuration or tool data anywhere: analysis happens entirely locally, and reports are written only to the paths and streams you specify.
