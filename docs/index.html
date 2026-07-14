@@ -41,6 +41,7 @@
     --rf-line-strong: rgba(20, 10, 35, 0.6);
     --rf-purple: #6d28d9;
     --rf-purple-strong: #4c1d95;
+    --rf-accent-2: #2f6fed;
     --rf-chrome-1: #ffffff;
     --rf-chrome-2: #efeaf9;
     --rf-bar-glow: rgba(11, 11, 11, 0.16);
@@ -105,6 +106,7 @@
     --rf-line-strong: rgba(255, 255, 255, 0.6);
     --rf-purple: #a074ff;
     --rf-purple-strong: #c2a6ff;
+    --rf-accent-2: #4f8cff;
     --rf-chrome-1: #19191d;
     --rf-chrome-2: #0a0a0c;
     --rf-bar-glow: rgba(255, 255, 255, 0.22);
@@ -141,6 +143,7 @@
     --rf-line-strong: rgba(20, 10, 35, 0.6);
     --rf-purple: #6d28d9;
     --rf-purple-strong: #4c1d95;
+    --rf-accent-2: #2f6fed;
     --rf-chrome-1: #ffffff;
     --rf-chrome-2: #efeaf9;
     --rf-bar-glow: rgba(11, 11, 11, 0.16);
@@ -567,16 +570,33 @@
      multi-hue gradients, no glow blobs, no decorative icon glyphs.
      ============================================================ */
 
-  body, input, button { font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace; }
+  /* Data/technical elements read in monospace (reinforces the CLI-tool
+     identity); headlines and body copy use a bold sans for presence and
+     warmth. This mirrors how Vercel/Linear pair the two: monospace for
+     numbers and code, a confident sans for everything meant to be read. */
+  .hero-stat, .hbar-value, .cost-bar-cell, th.num, td.num, .tt-value,
+  .tt-tool-row b, .offender-meta b, .eyebrow, .hero-substat .value {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+  h1, h2, .btn, .copy-btn, .toggle-btn, #theme-toggle {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
 
-  .fx-grid, .fx-scanlines {
+  .fx-grid, .fx-glow, .fx-scanlines {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
   }
+  .fx-glow {
+    background:
+      radial-gradient(38% 42% at 30% 0%, var(--rf-purple), transparent 68%),
+      radial-gradient(32% 36% at 78% 6%, var(--rf-accent-2), transparent 66%),
+      var(--page-plane);
+    opacity: .28;
+    filter: url(#rf-grain);
+  }
   .fx-grid {
-    background-color: var(--rf-bg);
     background-image:
       linear-gradient(var(--rf-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--rf-line) 1px, transparent 1px);
@@ -589,7 +609,7 @@
     opacity: .3;
   }
 
-  /* Hero sits on the flat grid background; everything below stays on the
+  /* Hero sits on the glow+grid background; everything below stays on the
      solid, validated-contrast surface so real data never sits on a texture. */
   .hero { background: transparent; border-bottom: none; position: relative; }
   .hero::after {
@@ -597,14 +617,16 @@
     position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
     background: linear-gradient(90deg, transparent, var(--rf-line-strong) 20%, var(--rf-purple) 50%, var(--rf-line-strong) 80%, transparent);
   }
-  .eyebrow { letter-spacing: .18em; }
+  .eyebrow { letter-spacing: .16em; }
   .hero h1 {
-    text-transform: uppercase;
-    font-weight: 700;
-    letter-spacing: .02em;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     color: var(--text-primary);
+    filter: drop-shadow(0 0 34px rgba(160, 116, 255, 0.35));
   }
-  .hero h1 .accent { color: var(--rf-purple); }
+  :root[data-theme="light"] .hero h1, .hero h1 { filter: drop-shadow(0 0 28px rgba(109, 40, 217, 0.18)); }
+  @media (prefers-color-scheme: dark) { .hero h1 { filter: drop-shadow(0 0 34px rgba(160, 116, 255, 0.35)); } }
+  :root[data-theme="dark"] .hero h1 { filter: drop-shadow(0 0 34px rgba(160, 116, 255, 0.35)); }
 
   footer { border-top: none; position: relative; }
   footer::before {
@@ -613,24 +635,26 @@
     background: linear-gradient(90deg, transparent, var(--rf-line-strong) 20%, var(--rf-purple) 50%, var(--rf-line-strong) 80%, transparent);
   }
 
-  h2 { text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+  h2 { font-weight: 800; letter-spacing: -0.01em; }
   h2::after {
     content: "";
     display: block;
-    width: 42px; height: 2px;
-    margin: .65rem auto 0;
-    background: var(--rf-purple);
+    width: 42px; height: 3px;
+    margin: .7rem auto 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--rf-purple), var(--rf-accent-2));
   }
 
   .card {
     position: relative;
     overflow: hidden;
     border-color: var(--rf-line);
+    box-shadow: var(--shadow), 0 0 40px -22px var(--rf-purple);
   }
   .card::before {
     content: "";
     position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: var(--rf-purple);
+    background: linear-gradient(90deg, var(--rf-purple), var(--rf-accent-2));
   }
 
   .btn, .copy-btn, .toggle-btn, #theme-toggle {
@@ -641,12 +665,22 @@
     background: var(--rf-purple);
     color: #fff;
     border-color: var(--rf-purple);
+    box-shadow: 0 0 24px -6px var(--rf-purple);
   }
-  .btn.primary:hover { background: var(--rf-purple-strong); border-color: var(--rf-purple-strong); }
+  .btn.primary:hover { background: var(--rf-purple-strong); border-color: var(--rf-purple-strong); box-shadow: 0 0 30px -4px var(--rf-purple-strong); }
 </style>
 </head>
 <body>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="rf-grain">
+    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="noise"/>
+    <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.09 0" result="grain"/>
+    <feComposite in="grain" in2="SourceGraphic" operator="over"/>
+  </filter>
+</svg>
+
+<div class="fx-glow" aria-hidden="true"></div>
 <div class="fx-grid" aria-hidden="true"></div>
 <div class="fx-scanlines" aria-hidden="true"></div>
 
