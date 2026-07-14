@@ -5,6 +5,7 @@ import * as os from 'os';
 import {
   getKnownConfigPaths,
   parseMcpConfigText,
+  parseCodexConfigText,
   loadServersFromConfigFile,
 } from '../src/config/discover';
 
@@ -93,12 +94,86 @@ describe('parseMcpConfigText', () => {
   });
 });
 
+describe('parseCodexConfigText', () => {
+  it('parses a valid Codex config.toml with multiple servers', () => {
+    const text = `
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+[mcp_servers.git]
+command = "uvx"
+args = ["mcp-server-git"]
+
+[mcp_servers.git.env]
+FOO = "bar"
+`;
+    const servers = parseCodexConfigText(text, '/fake/config.toml', 'Codex CLI');
+    expect(servers).toHaveLength(2);
+    expect(servers[0]).toMatchObject({
+      name: 'filesystem',
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'],
+      source: '/fake/config.toml',
+      client: 'Codex CLI',
+    });
+    expect(servers[1]).toMatchObject({ name: 'git', command: 'uvx', env: { FOO: 'bar' } });
+  });
+
+  it('skips entries with enabled = false', () => {
+    const text = `
+[mcp_servers.on]
+command = "cmd"
+
+[mcp_servers.off]
+command = "cmd"
+enabled = false
+`;
+    const servers = parseCodexConfigText(text, '/fake/config.toml', 'Codex CLI');
+    expect(servers.map((s) => s.name)).toEqual(['on']);
+  });
+
+  it('skips entries without a command', () => {
+    const text = `
+[mcp_servers.stdioServer]
+command = "cmd"
+
+[mcp_servers.noCommand]
+required = true
+`;
+    const servers = parseCodexConfigText(text, '/fake/config.toml', 'Codex CLI');
+    expect(servers.map((s) => s.name)).toEqual(['stdioServer']);
+  });
+
+  it('returns an empty array when no mcp_servers table is present', () => {
+    const servers = parseCodexConfigText('model = "o3"\n', '/fake/config.toml', 'Codex CLI');
+    expect(servers).toEqual([]);
+  });
+
+  it('throws a clear error on malformed TOML', () => {
+    expect(() =>
+      parseCodexConfigText('[mcp_servers.broken\ncommand = "cmd"', '/fake/bad.toml', 'Codex CLI'),
+    ).toThrow(/invalid TOML/);
+  });
+
+  it('defaults args to an empty array when omitted', () => {
+    const servers = parseCodexConfigText(
+      '[mcp_servers.noargs]\ncommand = "cmd"\n',
+      '/fake/config.toml',
+      'Codex CLI',
+    );
+    expect(servers[0].args).toEqual([]);
+  });
+});
+
 describe('loadServersFromConfigFile', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-meter-test-'));
   const tmpFile = path.join(tmpDir, 'config.json');
+  const tmpTomlFile = path.join(tmpDir, 'config.toml');
 
   afterEach(() => {
     if (fs.existsSync(tmpFile)) fs.rmSync(tmpFile);
+    if (fs.existsSync(tmpTomlFile)) fs.rmSync(tmpTomlFile);
   });
 
   it('reads and parses a real config file from disk', () => {
@@ -110,6 +185,23 @@ describe('loadServersFromConfigFile', () => {
     const servers = loadServersFromConfigFile(tmpFile, 'Cursor');
     expect(servers).toHaveLength(1);
     expect(servers[0]).toMatchObject({ name: 'demo', command: 'echo', client: 'Cursor', source: tmpFile });
+  });
+
+  it('reads and parses a real Codex TOML config file from disk based on its .toml extension', () => {
+    fs.writeFileSync(tmpTomlFile, '[mcp_servers.demo]\ncommand = "echo"\nargs = ["hi"]\n', 'utf8');
+    const servers = loadServersFromConfigFile(tmpTomlFile, 'Codex CLI');
+    expect(servers).toHaveLength(1);
+    expect(servers[0]).toMatchObject({
+      name: 'demo',
+      command: 'echo',
+      client: 'Codex CLI',
+      source: tmpTomlFile,
+    });
+  });
+
+  it('handles a missing config file gracefully (throws a catchable error, same as other clients)', () => {
+    const missingFile = path.join(tmpDir, 'does-not-exist.toml');
+    expect(() => loadServersFromConfigFile(missingFile, 'Codex CLI')).toThrow();
   });
 });
 
@@ -138,17 +230,26 @@ describe('getKnownConfigPaths', () => {
     );
   });
 
-  it('includes Claude Code, Cursor, and Windsurf locations', () => {
+  it('includes Claude Code, Cursor, Windsurf, and Codex CLI locations', () => {
     const locations = getKnownConfigPaths('linux', homeDir, {});
     const clients = locations.map((l) => l.client);
     expect(clients).toContain('Claude Code');
     expect(clients).toContain('Cursor');
     expect(clients).toContain('Windsurf');
+    expect(clients).toContain('Codex CLI');
   });
 
   it('includes project-scoped configs relative to the current working directory', () => {
     const locations = getKnownConfigPaths('linux', homeDir, { MCP_METER_CWD: '/my/project' });
     const projectCursor = locations.find((l) => l.client === 'Cursor (project)');
     expect(projectCursor?.configPath).toBe(path.join('/my/project', '.cursor', 'mcp.json'));
+    const projectCodex = locations.find((l) => l.client === 'Codex CLI (project)');
+    expect(projectCodex?.configPath).toBe(path.join('/my/project', '.codex', 'config.toml'));
+  });
+
+  it('includes a global Codex CLI config.toml path under the home directory', () => {
+    const locations = getKnownConfigPaths('linux', homeDir, {});
+    const codex = locations.find((l) => l.client === 'Codex CLI');
+    expect(codex?.configPath).toBe(path.join(homeDir, '.codex', 'config.toml'));
   });
 });

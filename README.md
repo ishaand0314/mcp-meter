@@ -143,8 +143,11 @@ MCP Meter auto-discovers server configs from these clients' well-known config fi
 | **Claude Code** | Global: `~/.claude.json` · Project: `.mcp.json` in the current directory |
 | **Cursor** | Global: `~/.cursor/mcp.json` · Project: `.cursor/mcp.json` in the current directory |
 | **Windsurf** | Windows: `%APPDATA%/Windsurf/mcp_config.json` · macOS/Linux: `~/.codeium/windsurf/mcp_config.json` |
+| **Codex CLI** | Global: `~/.codex/config.toml` · Project: `.codex/config.toml` in the current directory |
 
 Any config file whose top-level shape uses an `mcpServers`, `servers`, or `mcp` map of server entries is understood, so `--config` also works against ad-hoc or hand-written config files in the same shape. Only `stdio`-based servers (defined by a `command` to run) are analyzed; URL/SSE-based server entries are currently skipped, and entries explicitly marked `"disabled": true` are skipped too.
+
+Codex CLI is the one exception to the JSON-shaped rule above: it stores its config as TOML rather than JSON, declaring each server as an `[mcp_servers.<name>]` table with `command`, optional `args`/`env`, and an optional `enabled` flag (servers with `enabled = false` are skipped, mirroring `"disabled": true` for the other clients). Any file with a `.toml` extension — whether auto-discovered or passed via `--config` — is parsed as a Codex-style config.
 
 ## How it works
 
