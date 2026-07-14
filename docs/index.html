@@ -34,6 +34,17 @@
     --status-critical: #d03b3b;
 
     --shadow: 0 8px 28px rgba(11,11,11,0.10);
+
+    /* Retrofuturism theme layer — chrome/pastel daylight variant */
+    --rf-sky-1: #ffd9ec;
+    --rf-sky-2: #cfe8ff;
+    --rf-chrome-1: #ffffff;
+    --rf-chrome-2: #d9d5ec;
+    --rf-accent: #ff3d9a;
+    --rf-accent-2: #0fb4c4;
+    --rf-grid-line: rgba(90, 45, 130, 0.12);
+    --rf-grid-glow: rgba(255, 61, 154, 0.20);
+    --rf-bar-glow: rgba(11, 11, 11, 0.14);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -88,6 +99,17 @@
     --status-critical: #d03b3b;
 
     --shadow: 0 8px 28px rgba(0,0,0,0.45);
+
+    /* Retrofuturism theme layer — synthwave night variant */
+    --rf-sky-1: #1a0b2e;
+    --rf-sky-2: #05050a;
+    --rf-chrome-1: #2b2b3a;
+    --rf-chrome-2: #101018;
+    --rf-accent: #ff2fb0;
+    --rf-accent-2: #21e6ff;
+    --rf-grid-line: rgba(255, 47, 176, 0.35);
+    --rf-grid-glow: rgba(33, 230, 255, 0.28);
+    --rf-bar-glow: rgba(255, 255, 255, 0.4);
   }
 
   :root[data-theme="light"] {
@@ -114,6 +136,17 @@
     --status-critical: #d03b3b;
 
     --shadow: 0 8px 28px rgba(11,11,11,0.10);
+
+    /* Retrofuturism theme layer — chrome/pastel daylight variant */
+    --rf-sky-1: #ffd9ec;
+    --rf-sky-2: #cfe8ff;
+    --rf-chrome-1: #ffffff;
+    --rf-chrome-2: #d9d5ec;
+    --rf-accent: #ff3d9a;
+    --rf-accent-2: #0fb4c4;
+    --rf-grid-line: rgba(90, 45, 130, 0.12);
+    --rf-grid-glow: rgba(255, 61, 154, 0.20);
+    --rf-bar-glow: rgba(11, 11, 11, 0.14);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -529,9 +562,119 @@
     border-top: 1px solid var(--border);
   }
   footer p { max-width: 620px; margin: 0 auto .35rem; }
+
+  /* ============================================================
+     Retrofuturism theme layer — additive only. Nothing above this
+     point is touched: chart colors, contrast-critical text, legend,
+     and table rendering keep their original validated tokens.
+     ============================================================ */
+
+  .fx-grid, .fx-glow, .fx-scanlines {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .fx-glow {
+    background:
+      radial-gradient(46% 38% at 78% 8%, var(--rf-accent-2) 0%, transparent 62%),
+      radial-gradient(60% 46% at 22% 0%, var(--rf-grid-glow), transparent 68%),
+      linear-gradient(180deg, var(--rf-sky-1) 0%, var(--page-plane) 62%);
+    opacity: .6;
+  }
+  .fx-grid {
+    background-image:
+      linear-gradient(var(--rf-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rf-grid-line) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transform: perspective(340px) rotateX(58deg);
+    transform-origin: 50% 0%;
+    -webkit-mask-image: linear-gradient(180deg, transparent, black 15%, black 46%, transparent 88%);
+    mask-image: linear-gradient(180deg, transparent, black 15%, black 46%, transparent 88%);
+    opacity: .55;
+  }
+  .fx-scanlines {
+    background-image: repeating-linear-gradient(0deg, rgba(11,11,11,.05) 0px, rgba(11,11,11,.05) 1px, transparent 1px, transparent 3px);
+    opacity: .3;
+  }
+  @media (prefers-color-scheme: dark) {
+    .fx-scanlines { background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0px, rgba(255,255,255,.045) 1px, transparent 1px, transparent 3px); opacity: .4; }
+  }
+  :root[data-theme="dark"] .fx-scanlines { background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0px, rgba(255,255,255,.045) 1px, transparent 1px, transparent 3px); opacity: .4; }
+  :root[data-theme="light"] .fx-scanlines { background-image: repeating-linear-gradient(0deg, rgba(11,11,11,.05) 0px, rgba(11,11,11,.05) 1px, transparent 1px, transparent 3px); opacity: .3; }
+
+  /* Hero becomes the "vaporwave sky" — everything else stays on solid,
+     validated-contrast surfaces so real data is never read against a gradient. */
+  .hero { background: transparent; border-bottom: none; position: relative; }
+  .hero::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--rf-accent), var(--rf-accent-2), transparent);
+  }
+  .eyebrow { letter-spacing: .16em; }
+  .hero h1 {
+    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: .01em;
+    background: linear-gradient(100deg, var(--rf-accent), var(--rf-accent-2) 65%, var(--rf-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 26px var(--rf-grid-glow));
+  }
+  .hero-stat { text-shadow: 0 0 46px var(--rf-grid-glow); }
+
+  footer { border-top: none; position: relative; }
+  footer::before {
+    content: "";
+    position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--rf-accent-2), var(--rf-accent), transparent);
+  }
+
+  h2 { text-transform: uppercase; letter-spacing: .04em; font-weight: 800; }
+  h2::after {
+    content: "";
+    display: block;
+    width: 46px; height: 3px;
+    margin: .65rem auto 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--rf-accent), var(--rf-accent-2));
+  }
+
+  .card {
+    position: relative;
+    overflow: hidden;
+    border-color: var(--rf-grid-line);
+    box-shadow: var(--shadow), 0 0 36px -20px var(--rf-accent-2);
+  }
+  .card::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--rf-accent), var(--rf-accent-2), var(--rf-accent));
+  }
+
+  .btn, .copy-btn, .toggle-btn, #theme-toggle {
+    background: linear-gradient(180deg, var(--rf-chrome-1), var(--rf-chrome-2));
+    border-color: var(--rf-grid-line);
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--rf-accent), var(--rf-accent-2));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 0 26px -6px var(--rf-accent-2);
+  }
+  .btn.primary:hover { filter: brightness(1.1); }
+
+  .hbar-fill, .cost-bar-fill {
+    box-shadow: 0 0 10px 0 var(--rf-bar-glow);
+  }
 </style>
 </head>
 <body>
+
+<div class="fx-glow" aria-hidden="true"></div>
+<div class="fx-grid" aria-hidden="true"></div>
+<div class="fx-scanlines" aria-hidden="true"></div>
 
 <button id="theme-toggle" type="button" aria-label="Toggle color theme">◐ Theme</button>
 
