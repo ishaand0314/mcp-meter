@@ -1,9 +1,14 @@
 import { AnalysisResult } from '../types';
 import { OffendersReport } from '../analysis/offenders';
 import { projectAcrossModels, formatUsd } from '../analysis/cost';
+import { UsageOverlay, usedCountFor, usageSummaryLine } from '../analysis/usage';
 
 export interface MarkdownOptions {
   isDemo: boolean;
+  /** When set (from --usage-log), adds a "Real usage overlay" section with a
+   * per-tool Used column and a dead-weight summary. Absent by default so the
+   * default markdown report is unchanged. */
+  usage?: UsageOverlay;
 }
 
 function formatInt(n: number): string {
@@ -40,6 +45,23 @@ export function renderMarkdown(
   }
   lines.push(`| **Total** | **${activeServers.reduce((n, s) => n + s.tools.length, 0)}** | **${formatInt(result.totalTokens)}** |`);
   lines.push('');
+
+  if (options.usage) {
+    lines.push('## Real usage overlay');
+    lines.push('');
+    lines.push(`_${usageSummaryLine(options.usage)}_`);
+    lines.push('');
+    lines.push('| Server | Tool | Tokens | Used |');
+    lines.push('| --- | --- | ---: | ---: |');
+    for (const server of activeServers) {
+      for (const tool of [...server.tools].sort((a, b) => b.tokens - a.tokens)) {
+        lines.push(
+          `| ${server.name} | ${tool.name} | ${formatInt(tool.tokens)} | ${formatInt(usedCountFor(options.usage, server.name, tool.name))} |`,
+        );
+      }
+    }
+    lines.push('');
+  }
 
   if (skippedServers.length > 0) {
     lines.push('## Skipped servers');

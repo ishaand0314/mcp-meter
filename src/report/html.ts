@@ -2,6 +2,7 @@ import { AnalysisResult, ServerAnalysis, ToolAnalysis } from '../types';
 import { OffendersReport } from '../analysis/offenders';
 import { projectAcrossModels, formatUsd } from '../analysis/cost';
 import { DEFAULT_PROJECTION_MODELS } from '../pricing';
+import { UsageOverlay, usedCountFor, usageSummaryLine } from '../analysis/usage';
 
 function escapeHtml(s: string): string {
   return String(s)
@@ -153,20 +154,28 @@ function buildOffendersSection(offenders: OffendersReport): string {
   return parts.join('\n');
 }
 
-function buildDataTable(servers: ServerAnalysis[]): string {
+function buildDataTable(servers: ServerAnalysis[], usage?: UsageOverlay): string {
   const rows: string[] = [];
   for (const server of servers) {
     for (const tool of [...server.tools].sort((a, b) => b.tokens - a.tokens)) {
+      const usedCell = usage
+        ? `<td class="num">${formatInt(usedCountFor(usage, server.name, tool.name))}</td>`
+        : '';
       rows.push(
-        `<tr><td>${escapeHtml(server.name)}</td><td>${escapeHtml(tool.name)}</td><td class="num">${formatInt(tool.tokens)}</td></tr>`,
+        `<tr><td>${escapeHtml(server.name)}</td><td>${escapeHtml(tool.name)}</td><td class="num">${formatInt(tool.tokens)}</td>${usedCell}</tr>`,
       );
     }
   }
-  return `<table class="data-table"><thead><tr><th>Server</th><th>Tool</th><th>Tokens</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  const usedHeader = usage ? '<th class="num">Used</th>' : '';
+  return `<table class="data-table"><thead><tr><th>Server</th><th>Tool</th><th>Tokens</th>${usedHeader}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 export interface HtmlReportOptions {
   isDemo: boolean;
+  /** When set (from --usage-log), adds a "Used" column to the per-tool table
+   * plus a dead-weight summary card. Absent by default so the default HTML
+   * report is unchanged. */
+  usage?: UsageOverlay;
 }
 
 /** Renders a fully self-contained static HTML report - inline CSS/SVG only,
@@ -184,7 +193,13 @@ export function renderHtml(
   const chartSvg = buildChartSvg(activeServers);
   const legend = buildLegend();
   const offendersHtml = buildOffendersSection(offenders);
-  const dataTable = buildDataTable(activeServers);
+  const dataTable = buildDataTable(activeServers, options.usage);
+  const usageHtml = options.usage
+    ? `<div class="card">
+    <h2 style="margin-top:0">Real usage overlay</h2>
+    <p>${escapeHtml(usageSummaryLine(options.usage))}</p>
+  </div>`
+    : '';
 
   const provenanceHtml = options.isDemo
     ? `<p class="provenance"><strong>Provenance:</strong> the <code>filesystem</code> server above is <strong>live-captured</strong> from a real MCP handshake against <code>@modelcontextprotocol/server-filesystem</code>. Every other demo server is <strong>illustrative</strong> example data, not captured from a live server.</p>`
@@ -346,6 +361,8 @@ export function renderHtml(
   <div class="card">
     ${offendersHtml || '<p class="muted">No offenders detected.</p>'}
   </div>
+
+  ${usageHtml}
 
   <div class="card">
     <h2 style="margin-top:0">Full per-tool breakdown</h2>

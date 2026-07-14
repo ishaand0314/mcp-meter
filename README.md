@@ -59,6 +59,16 @@ Options:
                             gating)
   --badge <serverName>      print a standalone SVG badge for one server's token
                             count instead of the full report
+  --usage-log <path>        overlay real tool-call counts from an agent session
+                            transcript (Claude Code's local
+                            ~/.claude/projects/**/*.jsonl format, or a generic
+                            JSON array of {"tool": "name"} records) on top of
+                            the static report, to show which tools are dead
+                            weight
+  --watch                   after printing the report, keep watching the
+                            resolved config file(s) and automatically re-analyze
+                            whenever they change (no effect with --demo, since
+                            there is no file to watch)
   -h, --help                display help for command
 ```
 
@@ -94,6 +104,13 @@ mcp-meter --turns-per-day 200
 
 # Print a standalone SVG badge for one server (e.g. to embed in its own README)
 mcp-meter --badge filesystem > filesystem-badge.svg
+
+# Overlay real tool-call counts from a session transcript to see which
+# configured tools actually get used, vs. which are pure standing overhead
+mcp-meter --usage-log ~/.claude/projects/-my-project/session-id.jsonl
+
+# Keep a terminal open and get a fresh report every time the config changes
+mcp-meter --config ~/.cursor/mcp.json --watch
 ```
 
 ## Example Output
@@ -156,6 +173,8 @@ Codex CLI is the one exception to the JSON-shaped rule above: it stores its conf
 3. **Tokenization** — for each tool, the exact JSON payload that gets injected into the model's context (`name` + `description` + `inputSchema`) is tokenized with [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), an OpenAI-compatible BPE tokenizer.
 4. **Cost model** — total tokens per turn are projected into a monthly dollar figure across a handful of representative models, at an assumed daily request volume (default 50 turns/day, override with `--turns-per-day`).
 5. **Report** — rendered as a terminal table by default, or as JSON, GitHub-flavored markdown, a self-contained static HTML page, or a standalone SVG badge. Every report also surfaces two offender checks: tools whose description is a disproportionate token hog, and pairs of tools that look like near-duplicates of each other.
+6. **Real usage overlay (optional)** — pass `--usage-log <path>` to see which of those configured tools were actually called during a real session, versus which are pure standing overhead that never gets used. MCP Meter reads Claude Code's local session transcripts (`~/.claude/projects/**/*.jsonl`) natively, or a generic JSON array of `{"tool": "name"}` records for any other client. Every report format gains a `used` count per tool plus a one-line summary of how many tools — and how many tokens — were never touched.
+7. **Live mode (optional)** — pass `--watch` to keep MCP Meter running after the first report: it watches the config file(s) it just analyzed and automatically re-runs the whole analysis and reprints the report the moment they change, so you can see the token cost update live as you add or remove servers.
 
 ## Limitations
 
