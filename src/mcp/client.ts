@@ -101,7 +101,7 @@ export function fetchToolsFromServer(config: ServerConfig): Promise<FetchToolsOu
       if (pid === undefined) return;
       if (process.platform === 'win32') {
         try {
-          spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+          spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' }).unref();
         } catch {
           /* ignore */
         }

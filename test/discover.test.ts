@@ -7,6 +7,7 @@ import {
   parseMcpConfigText,
   parseCodexConfigText,
   loadServersFromConfigFile,
+  discoverAllServers,
 } from '../src/config/discover';
 
 describe('parseMcpConfigText', () => {
@@ -92,6 +93,62 @@ describe('parseMcpConfigText', () => {
     );
     expect(servers[0].args).toEqual([]);
   });
+
+  it('rejects a malformed array `env` value instead of passing it through as bogus env vars', () => {
+    const servers = parseMcpConfigText(
+      JSON.stringify({ mcpServers: { bad: { command: 'cmd', env: ['FOO=bar'] } } }),
+      '/fake/path.json',
+      'test',
+    );
+    expect(servers).toHaveLength(1);
+    expect(servers[0].env).toBeUndefined();
+  });
+
+  it('discovers Claude Code "local" scope servers nested under projects["<cwd>"].mcpServers', () => {
+    // This mirrors the real ~/.claude.json shape written by `claude mcp add`
+    // with no --scope flag (the default is "local", not "user"): the server
+    // ends up nested under `projects[cwd].mcpServers`, not under a top-level
+    // `mcpServers` key.
+    const text = JSON.stringify({
+      mcpServers: {},
+      projects: {
+        '/home/user/myproject': {
+          mcpServers: {
+            localServer: { command: 'npx', args: ['-y', 'some-server'] },
+          },
+        },
+        '/home/user/otherproject': {
+          mcpServers: { unrelated: { command: 'nope' } },
+        },
+      },
+    });
+    const servers = parseMcpConfigText(text, '/home/user/.claude.json', 'Claude Code', '/home/user/myproject');
+    expect(servers).toHaveLength(1);
+    expect(servers[0]).toMatchObject({ name: 'localServer', command: 'npx' });
+  });
+
+  it('returns nothing local-scoped when the projects entry has no key matching the current cwd', () => {
+    const text = JSON.stringify({
+      mcpServers: {},
+      projects: {
+        '/home/user/otherproject': { mcpServers: { unrelated: { command: 'nope' } } },
+      },
+    });
+    const servers = parseMcpConfigText(text, '/home/user/.claude.json', 'Claude Code', '/home/user/myproject');
+    expect(servers).toEqual([]);
+  });
+
+  it('merges top-level (user scope) and projects[cwd] (local scope) servers, with local scope winning on a name collision', () => {
+    const text = JSON.stringify({
+      mcpServers: { shared: { command: 'user-cmd' }, userOnly: { command: 'u' } },
+      projects: {
+        '/proj': { mcpServers: { shared: { command: 'local-cmd' }, localOnly: { command: 'l' } } },
+      },
+    });
+    const servers = parseMcpConfigText(text, '/home/user/.claude.json', 'Claude Code', '/proj');
+    expect(servers.map((s) => s.name).sort()).toEqual(['localOnly', 'shared', 'userOnly']);
+    expect(servers.find((s) => s.name === 'shared')?.command).toBe('local-cmd');
+  });
 });
 
 describe('parseCodexConfigText', () => {
@@ -163,6 +220,13 @@ required = true
       'Codex CLI',
     );
     expect(servers[0].args).toEqual([]);
+  });
+
+  it('rejects a malformed array `env` value instead of passing it through as bogus env vars', () => {
+    const text = '[mcp_servers.bad]\ncommand = "cmd"\nenv = ["FOO=bar"]\n';
+    const servers = parseCodexConfigText(text, '/fake/config.toml', 'Codex CLI');
+    expect(servers).toHaveLength(1);
+    expect(servers[0].env).toBeUndefined();
   });
 });
 
@@ -251,5 +315,71 @@ describe('getKnownConfigPaths', () => {
     const locations = getKnownConfigPaths('linux', homeDir, {});
     const codex = locations.find((l) => l.client === 'Codex CLI');
     expect(codex?.configPath).toBe(path.join(homeDir, '.codex', 'config.toml'));
+  });
+
+  it('marks cwd-derived project-scoped locations as untrusted, unlike home-directory (global) locations', () => {
+    const locations = getKnownConfigPaths('linux', homeDir, { MCP_METER_CWD: '/my/project' });
+    expect(locations.find((l) => l.client === 'Claude Code (project)')?.untrusted).toBe(true);
+    expect(locations.find((l) => l.client === 'Cursor (project)')?.untrusted).toBe(true);
+    expect(locations.find((l) => l.client === 'Codex CLI (project)')?.untrusted).toBe(true);
+
+    expect(locations.find((l) => l.client === 'Claude Code')?.untrusted).toBeFalsy();
+    expect(locations.find((l) => l.client === 'Cursor')?.untrusted).toBeFalsy();
+    expect(locations.find((l) => l.client === 'Codex CLI')?.untrusted).toBeFalsy();
+  });
+});
+
+describe('discoverAllServers', () => {
+  const mkTmpDir = (prefix: string) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+
+  it('does not load project-scoped (cwd) configs by default, even if present on disk', () => {
+    const tmpHome = mkTmpDir('mcp-meter-home-');
+    const tmpProject = mkTmpDir('mcp-meter-project-');
+    try {
+      fs.writeFileSync(
+        path.join(tmpProject, '.mcp.json'),
+        JSON.stringify({ mcpServers: { evil: { command: 'echo', args: ['pwned'] } } }),
+      );
+      const servers = discoverAllServers('linux', tmpHome, { MCP_METER_CWD: tmpProject });
+      expect(servers.find((s) => s.name === 'evil')).toBeUndefined();
+    } finally {
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+      fs.rmSync(tmpProject, { recursive: true, force: true });
+    }
+  });
+
+  it('loads project-scoped (cwd) configs once explicitly trusted via MCP_METER_TRUST_CWD=1', () => {
+    const tmpHome = mkTmpDir('mcp-meter-home-');
+    const tmpProject = mkTmpDir('mcp-meter-project-');
+    try {
+      fs.writeFileSync(
+        path.join(tmpProject, '.mcp.json'),
+        JSON.stringify({ mcpServers: { trusted: { command: 'echo', args: ['ok'] } } }),
+      );
+      const servers = discoverAllServers('linux', tmpHome, {
+        MCP_METER_CWD: tmpProject,
+        MCP_METER_TRUST_CWD: '1',
+      });
+      expect(servers.find((s) => s.name === 'trusted')).toBeDefined();
+    } finally {
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+      fs.rmSync(tmpProject, { recursive: true, force: true });
+    }
+  });
+
+  it('still loads global (home-directory) configs regardless of the project trust setting', () => {
+    const tmpHome = mkTmpDir('mcp-meter-home-');
+    const tmpProject = mkTmpDir('mcp-meter-project-');
+    try {
+      fs.writeFileSync(
+        path.join(tmpHome, '.claude.json'),
+        JSON.stringify({ mcpServers: { global: { command: 'echo', args: ['global'] } } }),
+      );
+      const servers = discoverAllServers('linux', tmpHome, { MCP_METER_CWD: tmpProject });
+      expect(servers.find((s) => s.name === 'global')).toBeDefined();
+    } finally {
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+      fs.rmSync(tmpProject, { recursive: true, force: true });
+    }
   });
 });

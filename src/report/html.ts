@@ -73,7 +73,7 @@ function buildChartSvg(servers: ServerAnalysis[]): string {
       const isLast = segIndex === segments.length - 1;
       const width = Math.max(0, isLast ? rawWidth : rawWidth - SEGMENT_GAP_PX);
       const colorClass = seg.isOther ? 'seg-other' : `seg-${(segIndex % SERIES_VARS.length) + 1}`;
-      const title = `${server.name} / ${escapeHtml(seg.label)}: ${formatInt(seg.tokens)} tokens`;
+      const title = `${escapeHtml(server.name)} / ${escapeHtml(seg.label)}: ${formatInt(seg.tokens)} tokens`;
       rectMarkup.push(
         `<rect class="bar-seg ${colorClass}" x="${(LEFT_MARGIN + cursor).toFixed(2)}" y="${y}" width="${width.toFixed(2)}" height="${ROW_HEIGHT}" rx="3"><title>${title}</title></rect>`,
       );
