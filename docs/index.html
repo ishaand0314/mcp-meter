@@ -1,0 +1,1677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Meter — Interactive Playground</title>
+<meta name="description" content="See exactly how many tokens and dollars your MCP servers add to every agent turn — an interactive walkthrough of real mcp-meter --demo output.">
+<style>
+  /* ============================================================
+     Design tokens — light (default) + dark, both media-query and
+     manual data-theme override. Never hardcode a hex outside here.
+     ============================================================ */
+  :root {
+    --surface: #fcfcfb;
+    --page-plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+
+    --series-1: #2a78d6; /* blue */
+    --series-2: #1baf7a; /* aqua */
+    --series-3: #eda100; /* yellow */
+    --series-4: #008300; /* green */
+    --series-5: #4a3aa7; /* violet */
+    --series-6: #e34948; /* red */
+    --series-7: #e87ba4; /* magenta */
+    --series-8: #eb6834; /* orange */
+
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-critical: #d03b3b;
+
+    --shadow: 0 8px 28px rgba(11,11,11,0.10);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #1a1a19;
+      --page-plane: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted: #898781;
+      --gridline: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+
+      --series-1: #3987e5;
+      --series-2: #199e70;
+      --series-3: #c98500;
+      --series-4: #008300;
+      --series-5: #9085e9;
+      --series-6: #e66767;
+      --series-7: #d55181;
+      --series-8: #d95926;
+
+      --status-good: #0ca30c;
+      --status-warning: #fab219;
+      --status-critical: #d03b3b;
+
+      --shadow: 0 8px 28px rgba(0,0,0,0.45);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --surface: #1a1a19;
+    --page-plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.10);
+
+    --series-1: #3987e5;
+    --series-2: #199e70;
+    --series-3: #c98500;
+    --series-4: #008300;
+    --series-5: #9085e9;
+    --series-6: #e66767;
+    --series-7: #d55181;
+    --series-8: #d95926;
+
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-critical: #d03b3b;
+
+    --shadow: 0 8px 28px rgba(0,0,0,0.45);
+  }
+
+  :root[data-theme="light"] {
+    --surface: #fcfcfb;
+    --page-plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+
+    --series-1: #2a78d6;
+    --series-2: #1baf7a;
+    --series-3: #eda100;
+    --series-4: #008300;
+    --series-5: #4a3aa7;
+    --series-6: #e34948;
+    --series-7: #e87ba4;
+    --series-8: #eb6834;
+
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-critical: #d03b3b;
+
+    --shadow: 0 8px 28px rgba(11,11,11,0.10);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.45;
+    overflow-x: hidden;
+  }
+  img, svg { max-width: 100%; }
+  a { color: inherit; }
+
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 1.25rem; width: 100%; }
+
+  section { padding: 3rem 0; }
+  section.tight { padding: 2rem 0; }
+
+  h2 {
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    margin: 0 0 .35rem;
+    text-align: center;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 auto 1.75rem;
+    font-size: .95rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: clamp(1.1rem, 4vw, 2rem);
+    box-shadow: var(--shadow);
+  }
+
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+  /* ---------------- Theme toggle ---------------- */
+  #theme-toggle {
+    position: fixed;
+    top: .85rem;
+    right: .85rem;
+    z-index: 100;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .4rem .7rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: .75rem;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  #theme-toggle:hover { filter: brightness(1.05); }
+
+  /* ---------------- Hero ---------------- */
+  .hero {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 4.5rem 0 3rem;
+    text-align: center;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: .7rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    margin: .4rem 0 .6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .tagline {
+    font-size: clamp(1rem, 2.2vw, 1.2rem);
+    color: var(--text-secondary);
+    max-width: 620px;
+    margin: 0 auto 2.5rem;
+  }
+  .hero-stat {
+    font-size: clamp(3rem, 13vw, 5.5rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .hero-stat-label {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: .6rem auto 0;
+    max-width: 480px;
+  }
+  .hero-substats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.75rem 2.75rem;
+    margin-top: 2.75rem;
+  }
+  .hero-substat .value {
+    font-weight: 700;
+    font-size: 1.3rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-substat .label {
+    font-size: .75rem;
+    color: var(--muted);
+    margin-top: .15rem;
+  }
+
+  /* ---------------- Problem ---------------- */
+  .problem p {
+    max-width: 700px;
+    margin: 0 auto;
+    text-align: center;
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+  }
+
+  /* ---------------- Legend ---------------- */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.35rem;
+    margin: 0 0 1.5rem;
+    font-size: .82rem;
+    color: var(--text-secondary);
+    justify-content: center;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: .45rem; }
+  .legend-swatch {
+    width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none;
+  }
+
+  /* ---------------- View toggle ---------------- */
+  .view-toggle-row { display: flex; justify-content: center; margin: 1.5rem 0 .25rem; }
+  .toggle-btn {
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 600;
+    padding: .5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--page-plane);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .toggle-btn:hover { filter: brightness(1.06); }
+
+  /* ---------------- Horizontal bar chart ---------------- */
+  .hbar-list { display: flex; flex-direction: column; gap: 1.1rem; }
+  .hbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: .9rem;
+    row-gap: .3rem;
+  }
+  .hbar-label {
+    flex: 1 1 140px;
+    min-width: 100px;
+    font-size: .85rem;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .4rem;
+  }
+  .hbar-label .legend-swatch { flex: none; }
+  .hbar-track-wrap {
+    flex: 4 1 220px;
+    min-width: 140px;
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+  }
+  .hbar-track {
+    position: relative;
+    flex: 1;
+    height: 22px;
+  }
+  .hbar-grid-line {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 1px;
+    background: var(--gridline);
+  }
+  .hbar-baseline {
+    position: absolute;
+    top: -5px; bottom: -5px;
+    left: 0;
+    width: 1px;
+    background: var(--baseline);
+  }
+  .hbar-fill {
+    position: absolute;
+    left: 0; top: 1px;
+    height: 20px;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    outline-offset: 2px;
+  }
+  .hbar-fill:hover, .hbar-fill:focus-visible {
+    filter: brightness(1.08);
+    outline: 2px solid var(--text-primary);
+  }
+  .hbar-value {
+    flex: 0 0 auto;
+    min-width: 52px;
+    text-align: right;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .hbar-badge {
+    flex: 0 0 auto;
+    font-size: .65rem;
+    padding: .12rem .5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  @media (max-width: 560px) {
+    .hbar-label { flex-basis: 100%; text-align: left; justify-content: flex-start; }
+    .hbar-track-wrap { flex-basis: 100%; }
+  }
+
+  /* ---------------- Tooltip ---------------- */
+  .tooltip {
+    position: fixed;
+    z-index: 200;
+    pointer-events: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .65rem .85rem;
+    box-shadow: var(--shadow);
+    font-size: .8rem;
+    max-width: 260px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity .12s ease, transform .12s ease;
+  }
+  .tooltip.visible { opacity: 1; transform: translateY(0); }
+  .tt-server { color: var(--text-secondary); margin-bottom: .3rem; }
+  .tt-value { font-weight: 700; font-size: 1rem; color: var(--text-primary); margin-bottom: .4rem; }
+  .tt-tool-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--text-secondary);
+    padding: .1rem 0;
+  }
+  .tt-tool-row b {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    flex: none;
+  }
+
+  /* ---------------- Tables ---------------- */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; min-width: 480px; }
+  caption { text-align: left; font-size: .8rem; color: var(--muted); margin-bottom: .6rem; caption-side: top; }
+  th, td { text-align: left; padding: .6rem .7rem; border-bottom: 1px solid var(--border); }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  thead th {
+    color: var(--muted);
+    font-weight: 700;
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------------- Cost bar cell ---------------- */
+  .cost-bar-cell { display: flex; align-items: center; gap: .6rem; min-width: 140px; }
+  .cost-bar-track { position: relative; flex: 1; height: 14px; }
+  .cost-bar-fill { position: absolute; left: 0; top: 0; height: 14px; border-radius: 0 4px 4px 0; }
+
+  /* ---------------- Offenders ---------------- */
+  .offender-callout {
+    text-align: center;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 620px;
+    margin: 0 auto 1.75rem;
+  }
+  .offender-callout b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .offender-groups { display: grid; gap: 1.75rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .offender-group h3 { font-size: .95rem; margin: 0 0 .75rem; }
+  .offender-list { display: flex; flex-direction: column; gap: .65rem; }
+  .offender-item {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--status-warning);
+    border-radius: 8px;
+    padding: .65rem .8rem;
+    background: var(--page-plane);
+  }
+  .offender-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .offender-icon { color: var(--status-warning); font-size: .95rem; line-height: 1; }
+  .offender-title { font-weight: 600; font-size: .85rem; }
+  .offender-tag {
+    margin-left: auto;
+    font-size: .68rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: .1rem .55rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .offender-meta { font-size: .8rem; color: var(--text-secondary); margin-top: .35rem; }
+  .offender-more { font-size: .8rem; color: var(--muted); margin-top: .5rem; }
+
+  /* ---------------- Provenance ---------------- */
+  .provenance-box {
+    max-width: 700px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .provenance-note {
+    font-size: 1rem;
+    color: var(--text-primary);
+    background: var(--page-plane);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+  }
+  .provenance-counts { margin-top: .9rem; font-size: .85rem; color: var(--text-secondary); }
+  .provenance-legend { display: flex; justify-content: center; gap: 1.5rem; margin-top: 1rem; font-size: .8rem; color: var(--text-secondary); flex-wrap: wrap; }
+  .provenance-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: .4rem; }
+  .dot-live { background: var(--status-good); }
+  .dot-illustrative { background: var(--muted); }
+
+  /* ---------------- CTA ---------------- */
+  .cta { text-align: center; }
+  .code-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    max-width: 460px;
+    margin: 0 auto;
+    background: var(--page-plane);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .7rem .6rem .7rem 1.1rem;
+    overflow-x: auto;
+  }
+  .code-box code { font-size: .9rem; white-space: nowrap; }
+  .copy-btn {
+    font: inherit;
+    font-size: .78rem;
+    font-weight: 600;
+    padding: .45rem .8rem;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    flex: none;
+  }
+  .copy-btn:hover { filter: brightness(1.08); }
+  .cta-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .65rem 1.2rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: .88rem;
+  }
+  .btn.primary { background: var(--text-primary); color: var(--surface); border-color: var(--text-primary); }
+  .btn:hover { filter: brightness(1.08); }
+  .cta-note { font-size: .8rem; color: var(--muted); margin-top: 1.25rem; }
+
+  footer {
+    padding: 2.25rem 0 3rem;
+    text-align: center;
+    font-size: .74rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+  footer p { max-width: 620px; margin: 0 auto .35rem; }
+</style>
+</head>
+<body>
+
+<button id="theme-toggle" type="button" aria-label="Toggle color theme">◐ Theme</button>
+
+<header class="hero">
+  <div class="container">
+    <div class="eyebrow">MCP tooling costs, measured</div>
+    <h1>MCP Meter</h1>
+    <p class="tagline">See exactly how many tokens — and dollars — your MCP servers add to every single agent turn, before you've typed a word.</p>
+
+    <div class="hero-stat" id="stat-tokens">—</div>
+    <p class="hero-stat-label">tokens injected into every turn, across <span id="stat-servers-inline">—</span> connected MCP servers</p>
+
+    <div class="hero-substats">
+      <div class="hero-substat">
+        <div class="value" id="stat-servers">—</div>
+        <div class="label">MCP servers analyzed</div>
+      </div>
+      <div class="hero-substat">
+        <div class="value" id="stat-tools">—</div>
+        <div class="label">tools registered</div>
+      </div>
+      <div class="hero-substat">
+        <div class="value" id="stat-cost-range">—</div>
+        <div class="label">projected $/month</div>
+      </div>
+      <div class="hero-substat">
+        <div class="value" id="stat-turns">—</div>
+        <div class="label">assumed turns/day</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+
+    <section class="problem tight">
+      <h2>The tax nobody sees</h2>
+      <p>Every MCP server your agent connects to registers a set of tools — and each tool's name, description, and input schema gets stuffed into the model's context on <em>every single turn</em>, before you've written a word of your prompt. Connect a handful of servers and that overhead compounds into thousands of standing tokens and real monthly spend, with no visibility into which server — or which tool — is responsible. MCP Meter reads your actual configured servers and shows you the breakdown in seconds, no prompts required.</p>
+    </section>
+
+    <section id="breakdown">
+      <h2>Where the tokens go</h2>
+      <p class="section-sub">A real, unedited run of <code>mcp-meter --demo</code> against six typical MCP servers. Hover or focus a bar for the per-tool detail.</p>
+
+      <div class="card">
+        <div class="legend" id="chart-legend"></div>
+
+        <div id="chart-view">
+          <div class="hbar-list" id="hbar-list"></div>
+        </div>
+
+        <div id="table-view" hidden>
+          <div class="table-wrap">
+            <table>
+              <caption>Per-server token breakdown — identical data to the chart above.</caption>
+              <thead>
+                <tr>
+                  <th>Server</th>
+                  <th>Status</th>
+                  <th class="num">Tools</th>
+                  <th class="num">Tokens / turn</th>
+                  <th class="num">Share of total</th>
+                </tr>
+              </thead>
+              <tbody id="server-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="view-toggle-row">
+          <button class="toggle-btn" id="view-toggle" type="button" aria-pressed="false">View as table</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="cost">
+      <h2>What that costs you</h2>
+      <p class="section-sub" id="cost-sub">Same tokens/turn, projected across models at the CLI's assumed turn volume.</p>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <caption id="cost-caption">Monthly cost projection</caption>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th class="num">$ / month</th>
+                <th>Relative</th>
+              </tr>
+            </thead>
+            <tbody id="cost-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="offenders">
+      <h2>What the analyzer flagged</h2>
+      <p class="section-sub">MCP Meter doesn't just count tokens — it flags the specific tools driving the overhead.</p>
+
+      <p class="offender-callout" id="offender-callout"></p>
+
+      <div class="card offender-groups">
+        <div class="offender-group">
+          <h3>Verbose descriptions</h3>
+          <div class="offender-list" id="verbose-list"></div>
+        </div>
+        <div class="offender-group">
+          <h3>Likely duplicate tools</h3>
+          <div class="offender-list" id="dup-list"></div>
+          <p class="offender-more" id="dup-more" hidden></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="provenance">
+      <h2>What's real here</h2>
+      <div class="provenance-box">
+        <p class="provenance-note" id="provenance-note"></p>
+        <p class="provenance-counts" id="provenance-counts"></p>
+        <div class="provenance-legend">
+          <span><span class="dot dot-live"></span>Live-captured — a real MCP handshake against the actual server</span>
+          <span><span class="dot dot-illustrative"></span>Illustrative — bundled example data, for demo purposes</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="try-it" class="cta">
+      <h2>Try it yourself</h2>
+      <p class="section-sub">Run the exact command that produced every number on this page — entirely offline, no config required.</p>
+
+      <div class="code-box">
+        <code id="copy-text">npx mcp-meter --demo</code>
+        <button class="copy-btn" id="copy-btn" type="button">Copy</button>
+      </div>
+
+      <div class="cta-links">
+        <a class="btn primary" href="https://github.com/ishaand0314/mcp-meter" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        <a class="btn" href="https://www.npmjs.com/package/mcp-meter" target="_blank" rel="noopener noreferrer">View on npm</a>
+      </div>
+
+      <p class="cta-note">Point it at your own machine (no flags) to auto-discover and measure whatever MCP clients you actually have configured.</p>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <p>MCP Meter is source-available for transparency and security review — it is not licensed for redistribution, republishing, or derivative works. See the LICENSE file in the repository for the full terms.</p>
+  <p>All figures on this page are the real, unmodified output of <code>mcp-meter --demo --json</code>, embedded verbatim.</p>
+</footer>
+
+<div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+
+<script type="application/json" id="demo-data">{
+  "totalTokensPerTurn": 3309,
+  "turnsPerDay": 50,
+  "costProjection": [
+    {
+      "modelKey": "gpt-4o",
+      "label": "GPT-4o",
+      "monthlyCostUsd": 12.40875
+    },
+    {
+      "modelKey": "claude-sonnet",
+      "label": "Claude Sonnet",
+      "monthlyCostUsd": 14.8905
+    },
+    {
+      "modelKey": "gemini-flash",
+      "label": "Gemini Flash",
+      "monthlyCostUsd": 0.3722625
+    }
+  ],
+  "servers": [
+    {
+      "name": "filesystem",
+      "client": "demo",
+      "totalTokens": 1456,
+      "toolCount": 14,
+      "liveCaptured": true,
+      "illustrative": false,
+      "tools": [
+        {
+          "name": "read_file",
+          "tokens": 92,
+          "description": "Read the complete contents of a file as text. DEPRECATED: Use read_text_file instead."
+        },
+        {
+          "name": "read_text_file",
+          "tokens": 171,
+          "description": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the 'head' parameter to read only the first N lines of a file, or the 'tail' parameter to read only the last N lines of a file. Operates on the file as text regardless of extension. Only works within allowed directories."
+        },
+        {
+          "name": "read_media_file",
+          "tokens": 77,
+          "description": "Read a file and return it as a base64-encoded content block with its MIME type. Image and audio files are returned as image/audio content; any other file type is returned as an embedded resource. Only works within allowed directories."
+        },
+        {
+          "name": "read_multiple_files",
+          "tokens": 125,
+          "description": "Read the contents of multiple files simultaneously. This is more efficient than reading files one by one when you need to analyze or compare multiple files. Each file's content is returned with its path as a reference. Failed reads for individual files won't stop the entire operation. Only works within allowed directories."
+        },
+        {
+          "name": "write_file",
+          "tokens": 77,
+          "description": "Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories."
+        },
+        {
+          "name": "edit_file",
+          "tokens": 148,
+          "description": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories."
+        },
+        {
+          "name": "create_directory",
+          "tokens": 80,
+          "description": "Create a new directory or ensure a directory exists. Can create multiple nested directories in one operation. If the directory already exists, this operation will succeed silently. Perfect for setting up directory structures for projects or ensuring required paths exist. Only works within allowed directories."
+        },
+        {
+          "name": "list_directory",
+          "tokens": 82,
+          "description": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories."
+        },
+        {
+          "name": "list_directory_with_sizes",
+          "tokens": 115,
+          "description": "Get a detailed listing of all files and directories in a specified path, including sizes. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is useful for understanding directory structure and finding specific files within a directory. Only works within allowed directories."
+        },
+        {
+          "name": "directory_tree",
+          "tokens": 119,
+          "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories."
+        },
+        {
+          "name": "move_file",
+          "tokens": 95,
+          "description": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories."
+        },
+        {
+          "name": "search_files",
+          "tokens": 135,
+          "description": "Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like '*.ext' to match files in current directory, and '**/*.ext' to match files in all subdirectories. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories."
+        },
+        {
+          "name": "get_file_info",
+          "tokens": 77,
+          "description": "Retrieve detailed metadata about a file or directory. Returns comprehensive information including size, creation time, last modified time, permissions, and type. This tool is perfect for understanding file characteristics without reading the actual content. Only works within allowed directories."
+        },
+        {
+          "name": "list_allowed_directories",
+          "tokens": 63,
+          "description": "Returns the list of directories that this server is allowed to access. Subdirectories within these allowed directories are also accessible. Use this to understand which directories and their nested paths are available before trying to access files."
+        }
+      ],
+      "costProjection": [
+        {
+          "modelKey": "gpt-4o",
+          "label": "GPT-4o",
+          "monthlyCostUsd": 5.46
+        },
+        {
+          "modelKey": "claude-sonnet",
+          "label": "Claude Sonnet",
+          "monthlyCostUsd": 6.552
+        },
+        {
+          "modelKey": "gemini-flash",
+          "label": "Gemini Flash",
+          "monthlyCostUsd": 0.1638
+        }
+      ]
+    },
+    {
+      "name": "git-github",
+      "client": "demo",
+      "totalTokens": 731,
+      "toolCount": 8,
+      "liveCaptured": false,
+      "illustrative": true,
+      "tools": [
+        {
+          "name": "create_or_update_file",
+          "tokens": 109,
+          "description": "Create or update a single file in a GitHub repository."
+        },
+        {
+          "name": "search_repositories",
+          "tokens": 55,
+          "description": "Search for GitHub repositories matching a query string."
+        },
+        {
+          "name": "create_repository",
+          "tokens": 62,
+          "description": "Create a new GitHub repository in the authenticated account."
+        },
+        {
+          "name": "get_file_contents",
+          "tokens": 73,
+          "description": "Fetch the contents of a file or directory from a GitHub repository at a given ref."
+        },
+        {
+          "name": "create_pull_request",
+          "tokens": 224,
+          "description": "Open a new pull request. You should use this tool whenever a user asks you to open, file, submit, raise, or otherwise create a pull request on GitHub, whether they mention a specific repository by name or simply refer to \"the repo\" from prior conversation context, and regardless of whether they specify a base branch, in which case you should sensibly default to the repository default branch after first checking with the get_repository tool if one exists, and you should always double check that the head branch you are proposing actually exists remotely before calling this, and you should format the pull request body using GitHub-flavored markdown with clear section headers for Summary and Test Plan whenever the underlying change touches more than one file."
+        },
+        {
+          "name": "create_issue",
+          "tokens": 92,
+          "description": "Create a new issue in a GitHub repository."
+        },
+        {
+          "name": "list_commits",
+          "tokens": 57,
+          "description": "List commits on a branch in a GitHub repository."
+        },
+        {
+          "name": "fork_repository",
+          "tokens": 59,
+          "description": "Fork a GitHub repository into the authenticated account or a chosen organization."
+        }
+      ],
+      "costProjection": [
+        {
+          "modelKey": "gpt-4o",
+          "label": "GPT-4o",
+          "monthlyCostUsd": 2.74125
+        },
+        {
+          "modelKey": "claude-sonnet",
+          "label": "Claude Sonnet",
+          "monthlyCostUsd": 3.2895
+        },
+        {
+          "modelKey": "gemini-flash",
+          "label": "Gemini Flash",
+          "monthlyCostUsd": 0.0822375
+        }
+      ]
+    },
+    {
+      "name": "postgres",
+      "client": "demo",
+      "totalTokens": 354,
+      "toolCount": 5,
+      "liveCaptured": false,
+      "illustrative": true,
+      "tools": [
+        {
+          "name": "query",
+          "tokens": 46,
+          "description": "Run a read-only SQL query against the connected Postgres database and return the result rows."
+        },
+        {
+          "name": "execute_query",
+          "tokens": 190,
+          "description": "Execute an arbitrary SQL statement against the connected Postgres database, which may include SELECT, INSERT, UPDATE, DELETE, or DDL statements such as CREATE TABLE or ALTER TABLE, and this tool will attempt to run it inside a transaction when it detects a write operation so that partial failures can be rolled back automatically, and it will additionally return the affected row count alongside any returned columns when the underlying driver makes that information available, and callers should be aware that very large result sets may be truncated to a configurable maximum number of rows to avoid overwhelming the context window of the calling model, and that queries taking longer than the configured statement timeout will be aborted server-side and reported back as a timeout error rather than hanging indefinitely."
+        },
+        {
+          "name": "list_schemas",
+          "tokens": 29,
+          "description": "List all schemas in the connected database."
+        },
+        {
+          "name": "list_tables",
+          "tokens": 36,
+          "description": "List all tables in a given schema."
+        },
+        {
+          "name": "describe_table",
+          "tokens": 53,
+          "description": "Describe the columns, types, and constraints of a single table."
+        }
+      ],
+      "costProjection": [
+        {
+          "modelKey": "gpt-4o",
+          "label": "GPT-4o",
+          "monthlyCostUsd": 1.3275
+        },
+        {
+          "modelKey": "claude-sonnet",
+          "label": "Claude Sonnet",
+          "monthlyCostUsd": 1.593
+        },
+        {
+          "modelKey": "gemini-flash",
+          "label": "Gemini Flash",
+          "monthlyCostUsd": 0.039825
+        }
+      ]
+    },
+    {
+      "name": "puppeteer-browser",
+      "client": "demo",
+      "totalTokens": 227,
+      "toolCount": 5,
+      "liveCaptured": false,
+      "illustrative": true,
+      "tools": [
+        {
+          "name": "navigate",
+          "tokens": 36,
+          "description": "Navigate the browser to a given URL."
+        },
+        {
+          "name": "screenshot",
+          "tokens": 60,
+          "description": "Take a screenshot of the current page or a specific element."
+        },
+        {
+          "name": "click",
+          "tokens": 39,
+          "description": "Click an element on the page matching a CSS selector."
+        },
+        {
+          "name": "fill",
+          "tokens": 47,
+          "description": "Fill a form input field with the given value."
+        },
+        {
+          "name": "evaluate",
+          "tokens": 45,
+          "description": "Evaluate a JavaScript expression in the context of the current page and return the result."
+        }
+      ],
+      "costProjection": [
+        {
+          "modelKey": "gpt-4o",
+          "label": "GPT-4o",
+          "monthlyCostUsd": 0.85125
+        },
+        {
+          "modelKey": "claude-sonnet",
+          "label": "Claude Sonnet",
+          "monthlyCostUsd": 1.0215
+        },
+        {
+          "modelKey": "gemini-flash",
+          "label": "Gemini Flash",
+          "monthlyCostUsd": 0.0255375
+        }
+      ]
+    },
+    {
+      "name": "memory-knowledge-graph",
+      "client": "demo",
+      "totalTokens": 299,
+      "toolCount": 5,
+      "liveCaptured": false,
+      "illustrative": true,
+      "tools": [
+        {
+          "name": "create_entities",
+          "tokens": 85,
+          "description": "Create one or more new entities in the knowledge graph."
+        },
+        {
+          "name": "create_relations",
+          "tokens": 83,
+          "description": "Create one or more relations between existing entities in the knowledge graph."
+        },
+        {
+          "name": "add_observations",
+          "tokens": 62,
+          "description": "Add new observations to an existing entity in the knowledge graph."
+        },
+        {
+          "name": "read_graph",
+          "tokens": 29,
+          "description": "Read the entire contents of the knowledge graph."
+        },
+        {
+          "name": "search_nodes",
+          "tokens": 40,
+          "description": "Search the knowledge graph for nodes matching a query string."
+        }
+      ],
+      "costProjection": [
+        {
+          "modelKey": "gpt-4o",
+          "label": "GPT-4o",
+          "monthlyCostUsd": 1.12125
+        },
+        {
+          "modelKey": "claude-sonnet",
+          "label": "Claude Sonnet",
+          "monthlyCostUsd": 1.3455
+        },
+        {
+          "modelKey": "gemini-flash",
+          "label": "Gemini Flash",
+          "monthlyCostUsd": 0.0336375
+        }
+      ]
+    },
+    {
+      "name": "slack",
+      "client": "demo",
+      "totalTokens": 242,
+      "toolCount": 5,
+      "liveCaptured": false,
+      "illustrative": true,
+      "tools": [
+        {
+          "name": "list_channels",
+          "tokens": 43,
+          "description": "List public channels in the connected Slack workspace."
+        },
+        {
+          "name": "post_message",
+          "tokens": 49,
+          "description": "Post a new message to a Slack channel."
+        },
+        {
+          "name": "reply_to_thread",
+          "tokens": 63,
+          "description": "Reply to an existing message thread in a Slack channel."
+        },
+        {
+          "name": "get_channel_history",
+          "tokens": 51,
+          "description": "Fetch recent messages from a Slack channel."
+        },
+        {
+          "name": "get_users",
+          "tokens": 36,
+          "description": "List members of the connected Slack workspace."
+        }
+      ],
+      "costProjection": [
+        {
+          "modelKey": "gpt-4o",
+          "label": "GPT-4o",
+          "monthlyCostUsd": 0.9075
+        },
+        {
+          "modelKey": "claude-sonnet",
+          "label": "Claude Sonnet",
+          "monthlyCostUsd": 1.089
+        },
+        {
+          "modelKey": "gemini-flash",
+          "label": "Gemini Flash",
+          "monthlyCostUsd": 0.027225
+        }
+      ]
+    }
+  ],
+  "skippedServers": [],
+  "offenders": {
+    "verboseOutliers": [
+      {
+        "serverName": "git-github",
+        "toolName": "create_pull_request",
+        "tokens": 224,
+        "medianTokens": 63,
+        "suggestedDescription": "Open a new pull request. You should use this tool whenever a user asks you to open, file, submit, raise, or otherwise create a pull...",
+        "suggestedTokens": 112,
+        "potentialSavingsTokens": 112
+      },
+      {
+        "serverName": "postgres",
+        "toolName": "execute_query",
+        "tokens": 190,
+        "medianTokens": 63,
+        "suggestedDescription": "Execute an arbitrary SQL statement against the connected Postgres database, which may include SELECT, INSERT, UPDATE, DELETE, or DDL statements such as CREATE TABLE or...",
+        "suggestedTokens": 82,
+        "potentialSavingsTokens": 108
+      },
+      {
+        "serverName": "filesystem",
+        "toolName": "read_text_file",
+        "tokens": 171,
+        "medianTokens": 63,
+        "suggestedDescription": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file...",
+        "suggestedTokens": 103,
+        "potentialSavingsTokens": 68
+      },
+      {
+        "serverName": "filesystem",
+        "toolName": "edit_file",
+        "tokens": 148,
+        "medianTokens": 63,
+        "suggestedDescription": "Make line-based edits to a text file.  Each edit replaces exact line sequences with new content.",
+        "suggestedTokens": 133,
+        "potentialSavingsTokens": 15
+      },
+      {
+        "serverName": "filesystem",
+        "toolName": "search_files",
+        "tokens": 135,
+        "medianTokens": 63,
+        "suggestedDescription": "Recursively search for files and directories matching a pattern.  The patterns should be glob-style patterns that match paths relative to the working directory.",
+        "suggestedTokens": 84,
+        "potentialSavingsTokens": 51
+      }
+    ],
+    "redundantPairs": [
+      {
+        "a": {
+          "serverName": "filesystem",
+          "toolName": "list_directory"
+        },
+        "b": {
+          "serverName": "filesystem",
+          "toolName": "list_directory_with_sizes"
+        },
+        "similarity": 0.7776061776061776
+      },
+      {
+        "a": {
+          "serverName": "git-github",
+          "toolName": "create_repository"
+        },
+        "b": {
+          "serverName": "git-github",
+          "toolName": "fork_repository"
+        },
+        "similarity": 0.6781774580335731
+      },
+      {
+        "a": {
+          "serverName": "filesystem",
+          "toolName": "list_directory"
+        },
+        "b": {
+          "serverName": "filesystem",
+          "toolName": "list_allowed_directories"
+        },
+        "similarity": 0.6482882882882883
+      },
+      {
+        "a": {
+          "serverName": "filesystem",
+          "toolName": "create_directory"
+        },
+        "b": {
+          "serverName": "filesystem",
+          "toolName": "list_directory"
+        },
+        "similarity": 0.636709886547812
+      },
+      {
+        "a": {
+          "serverName": "filesystem",
+          "toolName": "create_directory"
+        },
+        "b": {
+          "serverName": "filesystem",
+          "toolName": "directory_tree"
+        },
+        "similarity": 0.6224550898203594
+      },
+      {
+        "a": {
+          "serverName": "filesystem",
+          "toolName": "read_file"
+        },
+        "b": {
+          "serverName": "filesystem",
+          "toolName": "read_text_file"
+        },
+        "similarity": 0.6188888888888888
+      },
+      {
+        "a": {
+          "serverName": "filesystem",
+          "toolName": "list_directory"
+        },
+        "b": {
+          "serverName": "filesystem",
+          "toolName": "directory_tree"
+        },
+        "similarity": 0.6115788259716296
+      },
+      {
+        "a": {
+          "serverName": "filesystem",
+          "toolName": "read_file"
+        },
+        "b": {
+          "serverName": "filesystem",
+          "toolName": "read_media_file"
+        },
+        "similarity": 0.6056208775451677
+      }
+    ]
+  },
+  "isDemo": true,
+  "provenance": {
+    "note": "The \"filesystem\" server is live-captured from a real MCP handshake against @modelcontextprotocol/server-filesystem. All other demo servers are illustrative example data."
+  }
+}</script>
+
+<script>
+(function () {
+  "use strict";
+
+  var data = JSON.parse(document.getElementById("demo-data").textContent);
+  var PALETTE_VARS = ["--series-1", "--series-2", "--series-3", "--series-4", "--series-5", "--series-6", "--series-7", "--series-8"];
+
+  function fmtInt(n) {
+    return Math.round(n).toLocaleString("en-US");
+  }
+  function fmtUsd(n) {
+    if (n < 1) return "$" + n.toFixed(2);
+    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function seriesColor(i) {
+    return "var(" + PALETTE_VARS[i % PALETTE_VARS.length] + ")";
+  }
+
+  // ---- fold servers beyond 8 into a single "Other" bucket (never invent a 9th hue) ----
+  var servers = data.servers;
+  var displayServers = servers;
+  if (servers.length > 8) {
+    var head = servers.slice(0, 7);
+    var tail = servers.slice(7);
+    var otherTokens = tail.reduce(function (s, x) { return s + x.totalTokens; }, 0);
+    var otherToolCount = tail.reduce(function (s, x) { return s + x.toolCount; }, 0);
+    var otherTools = [];
+    tail.forEach(function (x) { x.tools.forEach(function (t) { otherTools.push(t); }); });
+    otherTools.sort(function (a, b) { return b.tokens - a.tokens; });
+    displayServers = head.concat([{
+      name: "Other (" + tail.length + " servers)",
+      client: "demo",
+      totalTokens: otherTokens,
+      toolCount: otherToolCount,
+      liveCaptured: false,
+      illustrative: true,
+      tools: otherTools.slice(0, 5)
+    }]);
+  }
+
+  // ================= Hero stats =================
+  document.getElementById("stat-tokens").textContent = fmtInt(data.totalTokensPerTurn);
+  document.getElementById("stat-servers").textContent = String(servers.length);
+  document.getElementById("stat-servers-inline").textContent = String(servers.length);
+  var totalTools = servers.reduce(function (s, x) { return s + x.toolCount; }, 0);
+  document.getElementById("stat-tools").textContent = String(totalTools);
+  var costs = data.costProjection.map(function (c) { return c.monthlyCostUsd; });
+  var minCost = Math.min.apply(null, costs);
+  var maxCost = Math.max.apply(null, costs);
+  document.getElementById("stat-cost-range").textContent = fmtUsd(minCost) + "–" + fmtUsd(maxCost);
+  document.getElementById("stat-turns").textContent = String(data.turnsPerDay);
+
+  // ================= Per-server bar chart =================
+  var maxTokens = Math.max.apply(null, displayServers.map(function (s) { return s.totalTokens; }));
+  var legendEl = document.getElementById("chart-legend");
+  var listEl = document.getElementById("hbar-list");
+  var tooltipEl = document.getElementById("tooltip");
+  var GRID_STEPS = [0, 0.25, 0.5, 0.75, 1];
+
+  function positionTooltip(target) {
+    var rect = target.getBoundingClientRect();
+    var ttRect = tooltipEl.getBoundingClientRect();
+    var left = rect.left + rect.width / 2 - ttRect.width / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - ttRect.width - 8));
+    var top = rect.top - ttRect.height - 10;
+    if (top < 8) top = rect.bottom + 10;
+    tooltipEl.style.left = left + "px";
+    tooltipEl.style.top = top + "px";
+  }
+
+  displayServers.forEach(function (server, i) {
+    var color = seriesColor(i);
+
+    // legend entry
+    var legendItem = document.createElement("span");
+    legendItem.className = "legend-item";
+    var legendDot = document.createElement("span");
+    legendDot.className = "legend-swatch";
+    legendDot.style.background = color;
+    var legendName = document.createElement("span");
+    legendName.textContent = server.name;
+    legendItem.appendChild(legendDot);
+    legendItem.appendChild(legendName);
+    legendEl.appendChild(legendItem);
+
+    // row
+    var row = document.createElement("div");
+    row.className = "hbar-row";
+
+    var label = document.createElement("div");
+    label.className = "hbar-label";
+    var labelDot = document.createElement("span");
+    labelDot.className = "legend-swatch";
+    labelDot.style.background = color;
+    var labelText = document.createElement("span");
+    labelText.textContent = server.name;
+    label.appendChild(labelText);
+    label.appendChild(labelDot);
+    row.appendChild(label);
+
+    var trackWrap = document.createElement("div");
+    trackWrap.className = "hbar-track-wrap";
+
+    var track = document.createElement("div");
+    track.className = "hbar-track";
+
+    GRID_STEPS.forEach(function (pct) {
+      var line = document.createElement("div");
+      line.className = pct === 0 ? "hbar-baseline" : "hbar-grid-line";
+      line.style.left = (pct * 100) + "%";
+      track.appendChild(line);
+    });
+
+    var pct = (server.totalTokens / maxTokens) * 100;
+    var fill = document.createElement("div");
+    fill.className = "hbar-fill";
+    fill.style.width = Math.max(pct, 2.5) + "%";
+    fill.style.background = color;
+    fill.tabIndex = 0;
+    fill.setAttribute("role", "img");
+    fill.setAttribute("aria-label", server.name + ": " + fmtInt(server.totalTokens) + " tokens per turn across " + server.toolCount + " tools (" + (server.liveCaptured ? "live-captured" : "illustrative") + ")");
+    track.appendChild(fill);
+    trackWrap.appendChild(track);
+
+    var value = document.createElement("div");
+    value.className = "hbar-value";
+    value.textContent = fmtInt(server.totalTokens);
+    trackWrap.appendChild(value);
+    row.appendChild(trackWrap);
+
+    var badge = document.createElement("div");
+    badge.className = "hbar-badge";
+    badge.textContent = server.liveCaptured ? "live-captured" : "illustrative";
+    row.appendChild(badge);
+
+    listEl.appendChild(row);
+
+    // tooltip content: top 2-3 tools by token count
+    var topTools = server.tools.slice().sort(function (a, b) { return b.tokens - a.tokens; }).slice(0, 3);
+
+    function showTooltip() {
+      tooltipEl.innerHTML = "";
+      var serverLine = document.createElement("div");
+      serverLine.className = "tt-server";
+      serverLine.textContent = server.name + " · " + server.toolCount + " tools · " + (server.liveCaptured ? "live-captured" : "illustrative");
+      tooltipEl.appendChild(serverLine);
+
+      var valueLine = document.createElement("div");
+      valueLine.className = "tt-value";
+      valueLine.textContent = fmtInt(server.totalTokens) + " tokens / turn";
+      tooltipEl.appendChild(valueLine);
+
+      topTools.forEach(function (t) {
+        var r = document.createElement("div");
+        r.className = "tt-tool-row";
+        var n = document.createElement("span");
+        n.textContent = t.name;
+        var v = document.createElement("b");
+        v.textContent = fmtInt(t.tokens);
+        r.appendChild(n);
+        r.appendChild(v);
+        tooltipEl.appendChild(r);
+      });
+
+      positionTooltip(fill);
+      tooltipEl.classList.add("visible");
+    }
+    function hideTooltip() {
+      tooltipEl.classList.remove("visible");
+    }
+
+    fill.addEventListener("mouseenter", showTooltip);
+    fill.addEventListener("focus", showTooltip);
+    fill.addEventListener("mouseleave", hideTooltip);
+    fill.addEventListener("blur", hideTooltip);
+    fill.addEventListener("click", showTooltip);
+    fill.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") hideTooltip();
+    });
+  });
+
+  // ================= Table view (accessible fallback) =================
+  var tableBody = document.getElementById("server-table-body");
+  displayServers.forEach(function (server) {
+    var tr = document.createElement("tr");
+
+    var tdName = document.createElement("td");
+    tdName.textContent = server.name;
+    tr.appendChild(tdName);
+
+    var tdStatus = document.createElement("td");
+    tdStatus.textContent = server.liveCaptured ? "Live-captured" : "Illustrative";
+    tr.appendChild(tdStatus);
+
+    var tdTools = document.createElement("td");
+    tdTools.className = "num";
+    tdTools.textContent = String(server.toolCount);
+    tr.appendChild(tdTools);
+
+    var tdTokens = document.createElement("td");
+    tdTokens.className = "num";
+    tdTokens.textContent = fmtInt(server.totalTokens);
+    tr.appendChild(tdTokens);
+
+    var tdShare = document.createElement("td");
+    tdShare.className = "num";
+    tdShare.textContent = Math.round((server.totalTokens / data.totalTokensPerTurn) * 100) + "%";
+    tr.appendChild(tdShare);
+
+    tableBody.appendChild(tr);
+  });
+
+  // ================= View toggle =================
+  var toggleBtn = document.getElementById("view-toggle");
+  var chartView = document.getElementById("chart-view");
+  var tableView = document.getElementById("table-view");
+  var showingChart = true;
+  function renderToggle() {
+    chartView.hidden = !showingChart;
+    tableView.hidden = showingChart;
+    toggleBtn.setAttribute("aria-pressed", String(!showingChart));
+    toggleBtn.textContent = showingChart ? "View as table" : "View as chart";
+  }
+  toggleBtn.addEventListener("click", function () {
+    showingChart = !showingChart;
+    renderToggle();
+  });
+  renderToggle();
+
+  // ================= Cost projection =================
+  document.getElementById("cost-sub").textContent =
+    "The same " + fmtInt(data.totalTokensPerTurn) + " tokens/turn, projected across models at " + data.turnsPerDay + " assumed turns/day.";
+  document.getElementById("cost-caption").textContent =
+    "Monthly cost projection at " + data.turnsPerDay + " turns/day, by model";
+
+  var costBody = document.getElementById("cost-table-body");
+  var maxModelCost = Math.max.apply(null, data.costProjection.map(function (m) { return m.monthlyCostUsd; }));
+  data.costProjection.forEach(function (m, i) {
+    var tr = document.createElement("tr");
+
+    var tdLabel = document.createElement("td");
+    var dot = document.createElement("span");
+    dot.className = "legend-swatch";
+    dot.style.background = seriesColor(i);
+    dot.style.marginRight = ".5rem";
+    dot.style.display = "inline-block";
+    tdLabel.appendChild(dot);
+    tdLabel.appendChild(document.createTextNode(m.label));
+    tr.appendChild(tdLabel);
+
+    var tdCost = document.createElement("td");
+    tdCost.className = "num";
+    tdCost.textContent = fmtUsd(m.monthlyCostUsd);
+    tr.appendChild(tdCost);
+
+    var tdBar = document.createElement("td");
+    var cell = document.createElement("div");
+    cell.className = "cost-bar-cell";
+    var track = document.createElement("div");
+    track.className = "cost-bar-track";
+    var fill = document.createElement("div");
+    fill.className = "cost-bar-fill";
+    fill.style.width = Math.max((m.monthlyCostUsd / maxModelCost) * 100, 2.5) + "%";
+    fill.style.background = seriesColor(i);
+    track.appendChild(fill);
+    cell.appendChild(track);
+    tdBar.appendChild(cell);
+    tr.appendChild(tdBar);
+
+    costBody.appendChild(tr);
+  });
+
+  // ================= Offenders =================
+  var verbose = data.offenders.verboseOutliers || [];
+  var dup = data.offenders.redundantPairs || [];
+  var totalSavings = verbose.reduce(function (s, o) { return s + o.potentialSavingsTokens; }, 0);
+
+  var calloutEl = document.getElementById("offender-callout");
+  calloutEl.innerHTML = "";
+  calloutEl.appendChild(document.createTextNode("MCP Meter flagged "));
+  var b1 = document.createElement("b"); b1.textContent = String(verbose.length);
+  calloutEl.appendChild(b1);
+  calloutEl.appendChild(document.createTextNode(" overly-verbose tool description" + (verbose.length === 1 ? "" : "s") + " and "));
+  var b2 = document.createElement("b"); b2.textContent = String(dup.length);
+  calloutEl.appendChild(b2);
+  calloutEl.appendChild(document.createTextNode(" likely-duplicate tool pair" + (dup.length === 1 ? "" : "s") + " in this run — trimming just the verbose ones would save about "));
+  var b3 = document.createElement("b"); b3.textContent = fmtInt(totalSavings);
+  calloutEl.appendChild(b3);
+  calloutEl.appendChild(document.createTextNode(" tokens on every single turn."));
+
+  var verboseList = document.getElementById("verbose-list");
+  verbose.forEach(function (o) {
+    var item = document.createElement("div");
+    item.className = "offender-item";
+
+    var head = document.createElement("div");
+    head.className = "offender-head";
+    var icon = document.createElement("span");
+    icon.className = "offender-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "⚠";
+    var title = document.createElement("span");
+    title.className = "offender-title";
+    title.textContent = o.serverName + " · " + o.toolName;
+    var tag = document.createElement("span");
+    tag.className = "offender-tag";
+    tag.textContent = "verbose description";
+    head.appendChild(icon);
+    head.appendChild(title);
+    head.appendChild(tag);
+    item.appendChild(head);
+
+    var meta = document.createElement("div");
+    meta.className = "offender-meta";
+    meta.textContent = fmtInt(o.tokens) + " tokens vs. a " + fmtInt(o.medianTokens) + "-token median this run — the suggested trim saves about " + fmtInt(o.potentialSavingsTokens) + " tokens.";
+    item.appendChild(meta);
+
+    verboseList.appendChild(item);
+  });
+  if (verbose.length === 0) {
+    var noneV = document.createElement("p");
+    noneV.className = "offender-more";
+    noneV.textContent = "No verbose outliers flagged in this run.";
+    verboseList.appendChild(noneV);
+  }
+
+  var dupList = document.getElementById("dup-list");
+  var DUP_SHOWN = 5;
+  dup.slice(0, DUP_SHOWN).forEach(function (p) {
+    var item = document.createElement("div");
+    item.className = "offender-item";
+
+    var head = document.createElement("div");
+    head.className = "offender-head";
+    var icon = document.createElement("span");
+    icon.className = "offender-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "⚠";
+    var title = document.createElement("span");
+    title.className = "offender-title";
+    title.textContent = p.a.serverName + "." + p.a.toolName + " ↔ " + p.b.serverName + "." + p.b.toolName;
+    var tag = document.createElement("span");
+    tag.className = "offender-tag";
+    tag.textContent = Math.round(p.similarity * 100) + "% similar";
+    head.appendChild(icon);
+    head.appendChild(title);
+    head.appendChild(tag);
+    item.appendChild(head);
+
+    dupList.appendChild(item);
+  });
+  if (dup.length === 0) {
+    var noneD = document.createElement("p");
+    noneD.className = "offender-more";
+    noneD.textContent = "No likely-duplicate tools flagged in this run.";
+    dupList.appendChild(noneD);
+  } else if (dup.length > DUP_SHOWN) {
+    var moreEl = document.getElementById("dup-more");
+    moreEl.hidden = false;
+    moreEl.textContent = "+ " + (dup.length - DUP_SHOWN) + " more duplicate pair" + (dup.length - DUP_SHOWN === 1 ? "" : "s") + " flagged in the full report.";
+  }
+
+  // ================= Provenance =================
+  document.getElementById("provenance-note").textContent = data.provenance.note;
+  var liveCount = servers.filter(function (s) { return s.liveCaptured; }).length;
+  var illCount = servers.length - liveCount;
+  document.getElementById("provenance-counts").textContent =
+    "In this run: " + liveCount + " live-captured server" + (liveCount === 1 ? "" : "s") + ", " + illCount + " illustrative server" + (illCount === 1 ? "" : "s") + ".";
+
+  // ================= Copy to clipboard =================
+  var copyBtn = document.getElementById("copy-btn");
+  var copyText = document.getElementById("copy-text").textContent;
+  copyBtn.addEventListener("click", function () {
+    var ok = false;
+    function done() {
+      copyBtn.textContent = ok ? "Copied!" : "Press ⌘/Ctrl+C";
+      setTimeout(function () { copyBtn.textContent = "Copy"; }, 1800);
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(copyText).then(function () {
+        ok = true;
+        done();
+      }, function () {
+        fallbackCopy();
+      });
+    } else {
+      fallbackCopy();
+    }
+    function fallbackCopy() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = copyText;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch (e) {
+        ok = false;
+      }
+      done();
+    }
+  });
+
+  // ================= Theme toggle =================
+  var root = document.documentElement;
+  var themeBtn = document.getElementById("theme-toggle");
+  var STORAGE_KEY = "mcp-meter-theme";
+
+  function systemPref() {
+    return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  }
+  function currentEffective() {
+    var explicit = root.getAttribute("data-theme");
+    return explicit || systemPref();
+  }
+  function updateThemeBtn() {
+    var eff = currentEffective();
+    themeBtn.textContent = eff === "dark" ? "☀ Light" : "◑ Dark";
+    themeBtn.setAttribute("aria-label", "Switch to " + (eff === "dark" ? "light" : "dark") + " theme");
+  }
+  function applyTheme(t) {
+    if (t) root.setAttribute("data-theme", t);
+    else root.removeAttribute("data-theme");
+    updateThemeBtn();
+  }
+
+  var stored = null;
+  try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) { stored = null; }
+  if (stored === "dark" || stored === "light") {
+    applyTheme(stored);
+  } else {
+    updateThemeBtn();
+  }
+
+  themeBtn.addEventListener("click", function () {
+    var next = currentEffective() === "dark" ? "light" : "dark";
+    applyTheme(next);
+    try { localStorage.setItem(STORAGE_KEY, next); } catch (e) { /* ignore */ }
+  });
+
+})();
+</script>
+
+</body>
+</html>
