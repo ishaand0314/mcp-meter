@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { parse as parseToml } from 'smol-toml';
 import { ServerConfig } from '../types';
 
 export interface KnownConfigLocation {
@@ -76,6 +77,18 @@ export function getKnownConfigPaths(
     });
   }
 
+  // --- Codex CLI ---
+  // Global user config (TOML, not JSON).
+  locations.push({
+    client: 'Codex CLI',
+    configPath: path.join(homeDir, '.codex', 'config.toml'),
+  });
+  // Project-scoped config (checked into a repo, or per-project).
+  locations.push({
+    client: 'Codex CLI (project)',
+    configPath: path.join(cwd, '.codex', 'config.toml'),
+  });
+
   return locations;
 }
 
@@ -140,9 +153,54 @@ export function parseMcpConfigText(text: string, sourcePath: string, client: str
   return servers;
 }
 
-/** Reads and parses a single config file from disk. */
+/**
+ * Parses the TOML text of a Codex CLI `config.toml` file into a flat list of
+ * ServerConfig entries. Pure function - takes raw text in, mirroring
+ * parseMcpConfigText, so it's trivial to unit test against inline fixture
+ * strings without touching the filesystem.
+ *
+ * Codex declares servers as `[mcp_servers.<name>]` tables with `command`,
+ * optional `args`/`env`, and an optional `enabled` flag (default true).
+ */
+export function parseCodexConfigText(text: string, sourcePath: string, client: string): ServerConfig[] {
+  let parsed: unknown;
+  try {
+    parsed = parseToml(text);
+  } catch (err) {
+    throw new Error(`invalid TOML in ${sourcePath}: ${(err as Error).message}`);
+  }
+  if (typeof parsed !== 'object' || parsed === null) {
+    return [];
+  }
+  const obj = parsed as Record<string, unknown>;
+  const serverMap = obj.mcp_servers;
+  if (!serverMap || typeof serverMap !== 'object') return [];
+
+  const servers: ServerConfig[] = [];
+  for (const [name, rawEntry] of Object.entries(serverMap as Record<string, unknown>)) {
+    if (!rawEntry || typeof rawEntry !== 'object') continue;
+    const entry = rawEntry as Record<string, unknown>;
+    // Codex servers are enabled by default; skip ones explicitly turned off
+    // (the TOML analogue of the `"disabled": true` convention above).
+    if (entry.enabled === false) continue;
+    const command = typeof entry.command === 'string' ? entry.command : undefined;
+    if (!command) continue; // skip entries missing a stdio command
+    const args = Array.isArray(entry.args) ? entry.args.map(String) : [];
+    const env =
+      entry.env && typeof entry.env === 'object' ? (entry.env as Record<string, string>) : undefined;
+    servers.push({ name, command, args, env, source: sourcePath, client });
+  }
+  return servers;
+}
+
+/** Reads and parses a single config file from disk. Dispatches to the TOML
+ * parser for `.toml` files (Codex CLI) and the JSON parser for everything
+ * else. */
 export function loadServersFromConfigFile(configPath: string, client = 'custom'): ServerConfig[] {
   const text = fs.readFileSync(configPath, 'utf8');
+  if (path.extname(configPath).toLowerCase() === '.toml') {
+    return parseCodexConfigText(text, configPath, client);
+  }
   return parseMcpConfigText(text, configPath, client);
 }
 

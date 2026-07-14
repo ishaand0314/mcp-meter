@@ -42,7 +42,8 @@
   },
   "dependencies": {
     "commander": "^15.0.0",
-    "gpt-tokenizer": "^3.4.0"
+    "gpt-tokenizer": "^3.4.0",
+    "smol-toml": "^1.7.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
