@@ -2,10 +2,15 @@ import { AnalysisResult } from '../types';
 import { OffendersReport } from '../analysis/offenders';
 import { projectAcrossModels } from '../analysis/cost';
 import { DiffResult } from '../analysis/diff';
+import { UsageOverlay, usedCountFor, usageSummaryLine } from '../analysis/usage';
 
 export interface JsonReportOptions {
   isDemo: boolean;
   diff?: DiffResult;
+  /** When set (from --usage-log), adds a "used" field per tool plus a
+   * top-level usageSummary block. Absent by default so the default JSON
+   * shape is unchanged. */
+  usage?: UsageOverlay;
 }
 
 /** Builds the machine-readable JSON representation of a full analysis run. */
@@ -28,7 +33,12 @@ export function buildJsonReport(
       toolCount: s.tools.length,
       liveCaptured: s.liveCaptured ?? false,
       illustrative: s.illustrative ?? false,
-      tools: s.tools.map((t) => ({ name: t.name, tokens: t.tokens, description: t.description })),
+      tools: s.tools.map((t) => ({
+        name: t.name,
+        tokens: t.tokens,
+        description: t.description,
+        ...(options.usage ? { used: usedCountFor(options.usage, s.name, t.name) } : {}),
+      })),
       costProjection: projectAcrossModels(s.totalTokens, result.turnsPerDay),
     })),
     skippedServers: skippedServers.map((s) => ({ name: s.name, reason: s.skipReason })),
@@ -49,6 +59,16 @@ export function buildJsonReport(
 
   if (options.diff) {
     report.diff = options.diff;
+  }
+
+  if (options.usage) {
+    report.usageSummary = {
+      totalTools: options.usage.totalTools,
+      neverCalledCount: options.usage.neverCalledCount,
+      neverCalledTokens: options.usage.neverCalledTokens,
+      totalInvocationsParsed: options.usage.totalInvocationsParsed,
+      note: usageSummaryLine(options.usage),
+    };
   }
 
   return report;

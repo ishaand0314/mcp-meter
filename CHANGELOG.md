@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- `--usage-log <path>` to overlay real tool-call counts from an agent session transcript on top of the static report. Supports Claude Code's local session JSONL format (`~/.claude/projects/**/*.jsonl`, including its `mcp__<server>__<tool>` namespaced tool names) and a generic fallback JSON array of `{"tool": "name"}` records for any other client. Every report format (table, JSON, markdown, HTML) gains a per-tool `used` count and a summary callout showing how many tools, and how many tokens, were never called in that session.
+- `--watch` to keep MCP Meter running after the first report: it watches the resolved config file(s) for changes and automatically re-analyzes and reprints the report whenever they're modified, with a debounced re-run trigger and graceful Ctrl+C handling. Has no effect with `--demo`, since there is no config file to watch.
+
 ## [0.1.0] - 2026-07-14
 
 Initial release.

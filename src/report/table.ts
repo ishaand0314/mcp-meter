@@ -2,9 +2,14 @@ import { AnalysisResult } from '../types';
 import { OffendersReport } from '../analysis/offenders';
 import { projectAcrossModels } from '../analysis/cost';
 import { formatUsd } from '../analysis/cost';
+import { UsageOverlay, usedCountFor, usageSummaryLine } from '../analysis/usage';
 
 export interface TableOptions {
   isDemo: boolean;
+  /** When set (from --usage-log), adds a "used" column to the per-tool
+   * breakdown plus a dead-weight summary line. Absent by default so the
+   * default report is byte-for-byte unchanged. */
+  usage?: UsageOverlay;
 }
 
 function padRight(s: string, width: number): string {
@@ -67,10 +72,21 @@ export function renderTable(
   const toolRows: string[][] = [];
   for (const server of activeServers) {
     for (const tool of [...server.tools].sort((a, b) => b.tokens - a.tokens)) {
-      toolRows.push([server.name, tool.name, formatInt(tool.tokens)]);
+      const row = [server.name, tool.name, formatInt(tool.tokens)];
+      if (options.usage) {
+        row.push(formatInt(usedCountFor(options.usage, server.name, tool.name)));
+      }
+      toolRows.push(row);
     }
   }
-  lines.push(renderSimpleTable(['SERVER', 'TOOL', 'TOKENS'], toolRows, new Set([2])));
+  const toolHeaders = options.usage ? ['SERVER', 'TOOL', 'TOKENS', 'USED'] : ['SERVER', 'TOOL', 'TOKENS'];
+  const toolRightAlign = options.usage ? new Set([2, 3]) : new Set([2]);
+  lines.push(renderSimpleTable(toolHeaders, toolRows, toolRightAlign));
+
+  if (options.usage) {
+    lines.push('');
+    lines.push(usageSummaryLine(options.usage));
+  }
 
   lines.push('');
   lines.push(`Projected monthly cost (assuming ${formatInt(result.turnsPerDay)} turns/day × 30 days):`);
