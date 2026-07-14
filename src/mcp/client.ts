@@ -1,8 +1,58 @@
 import { spawn } from 'child_process';
+import { StringDecoder } from 'string_decoder';
 import { ServerConfig, ToolManifest } from '../types';
 
 /** Hard per-server timeout for the whole spawn + handshake + tools/list flow. */
 export const SERVER_TIMEOUT_MS = 10_000;
+
+/** Grace period after SIGTERM before we escalate to SIGKILL on a hung server. */
+export const KILL_GRACE_MS = 2_000;
+
+/** Per-stream cap on buffered output. A misbehaving/malicious server that never
+ * sends a newline (so no JSON-RPC line ever completes) must not be able to grow
+ * memory without bound while we wait out SERVER_TIMEOUT_MS. */
+export const MAX_BUFFERED_BYTES = 10 * 1024 * 1024; // 10 MiB
+
+/**
+ * Environment variables passed through to spawned MCP servers by default.
+ * Deliberately NOT the full parent environment: mcp-meter only needs the
+ * child to be able to locate its own interpreter/runtime and answer
+ * `initialize`/`tools/list`, so we avoid handing arbitrary (and possibly
+ * unvetted/third-party) server processes secrets like API keys or tokens
+ * that happen to be sitting in the invoking shell's environment. Anything
+ * a server actually needs beyond this can be supplied explicitly via the
+ * server's own configured `env`.
+ */
+const SAFE_ENV_PASSTHROUGH = [
+  'PATH',
+  'Path',
+  'HOME',
+  'USERPROFILE',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'SystemRoot',
+  'windir',
+  'ComSpec',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'ProgramFiles',
+  'ProgramFiles(x86)',
+  'ProgramData',
+  'NODE_PATH',
+  'LANG',
+  'LC_ALL',
+  'SHELL',
+];
+
+function buildChildEnv(config: ServerConfig): NodeJS.ProcessEnv {
+  const safeEnv: NodeJS.ProcessEnv = {};
+  for (const key of SAFE_ENV_PASSTHROUGH) {
+    const value = process.env[key];
+    if (value !== undefined) safeEnv[key] = value;
+  }
+  return { ...safeEnv, ...(config.env ?? {}) };
+}
 
 export interface FetchToolsResult {
   ok: true;
@@ -35,14 +85,60 @@ interface JsonRpcMessage {
 export function fetchToolsFromServer(config: ServerConfig): Promise<FetchToolsOutcome> {
   return new Promise((resolve) => {
     let settled = false;
+    let childExited = false;
+
+    /**
+     * Kills the spawned server. On POSIX this signals the whole process
+     * group (not just the immediate PID) so that wrapper commands such as
+     * `npx ...` or `docker run ...` can't leave a grandchild/container
+     * running after we give up on them. On Windows, `taskkill /T` is used
+     * to terminate the whole process tree since there is no equivalent to
+     * a negative-PID group signal. If the process doesn't go away after a
+     * SIGTERM, we escalate to SIGKILL.
+     */
+    const killTree = (signal: NodeJS.Signals) => {
+      const pid = child.pid;
+      if (pid === undefined) return;
+      if (process.platform === 'win32') {
+        try {
+          spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      try {
+        // Negative pid targets the whole process group created by `detached: true` below.
+        process.kill(-pid, signal);
+      } catch {
+        try {
+          child.kill(signal);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
     const finish = (outcome: FetchToolsOutcome) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try {
-        child.kill();
-      } catch {
-        /* ignore */
+      if (!childExited) {
+        try {
+          killTree('SIGTERM');
+        } catch {
+          /* ignore */
+        }
+        const escalate = setTimeout(() => {
+          if (!childExited) {
+            try {
+              killTree('SIGKILL');
+            } catch {
+              /* ignore */
+            }
+          }
+        }, KILL_GRACE_MS);
+        escalate.unref?.();
       }
       resolve(outcome);
     };
@@ -51,7 +147,11 @@ export function fetchToolsFromServer(config: ServerConfig): Promise<FetchToolsOu
     try {
       child = spawn(config.command, config.args ?? [], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, ...(config.env ?? {}) },
+        env: buildChildEnv(config),
+        // Give the child its own process group on POSIX so killTree() can signal
+        // the whole tree (e.g. the real server process behind an `npx`/`uvx` wrapper)
+        // instead of only the immediate wrapper PID.
+        detached: process.platform !== 'win32',
       });
     } catch (err) {
       resolve({ ok: false, reason: `failed to spawn: ${(err as Error).message}` });
@@ -67,6 +167,7 @@ export function fetchToolsFromServer(config: ServerConfig): Promise<FetchToolsOu
     });
 
     child.on('exit', (code, signal) => {
+      childExited = true;
       if (!settled) {
         finish({
           ok: false,
@@ -79,6 +180,11 @@ export function fetchToolsFromServer(config: ServerConfig): Promise<FetchToolsOu
     let stderrBuffer = '';
     let nextId = 1;
     const pending = new Map<number, (msg: JsonRpcMessage) => void>();
+    // Streaming decoders correctly carry over a multi-byte UTF-8 sequence that
+    // is split across two separate `data` chunks, instead of mangling it into
+    // replacement characters by decoding each chunk independently.
+    const stdoutDecoder = new StringDecoder('utf8');
+    const stderrDecoder = new StringDecoder('utf8');
 
     function send(msg: Record<string, unknown>) {
       try {
@@ -97,7 +203,15 @@ export function fetchToolsFromServer(config: ServerConfig): Promise<FetchToolsOu
     }
 
     child.stdout?.on('data', (chunk: Buffer) => {
-      stdoutBuffer += chunk.toString('utf8');
+      if (settled) return;
+      stdoutBuffer += stdoutDecoder.write(chunk);
+      if (stdoutBuffer.length > MAX_BUFFERED_BYTES) {
+        finish({
+          ok: false,
+          reason: `server sent more than ${MAX_BUFFERED_BYTES} bytes of stdout without a complete response`,
+        });
+        return;
+      }
       let idx: number;
       while ((idx = stdoutBuffer.indexOf('\n')) >= 0) {
         const line = stdoutBuffer.slice(0, idx);
@@ -119,7 +233,13 @@ export function fetchToolsFromServer(config: ServerConfig): Promise<FetchToolsOu
     });
 
     child.stderr?.on('data', (chunk: Buffer) => {
-      stderrBuffer += chunk.toString('utf8');
+      if (settled) return;
+      const decoded = stderrDecoder.write(chunk);
+      // stderr is only ever used as a truncated diagnostic hint, so once we're
+      // over the cap we just stop accumulating instead of growing forever.
+      if (stderrBuffer.length < MAX_BUFFERED_BYTES) {
+        stderrBuffer += decoded;
+      }
     });
 
     async function run() {
